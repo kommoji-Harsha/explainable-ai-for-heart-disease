@@ -13,6 +13,12 @@ from src.preprocessing import build_preprocessor, get_feature_lists
 from src.models import get_random_forest, get_xgboost, get_adaboost
 from src.optimization import optimize_random_forest, optimize_xgboost, optimize_adaboost
 from src.ensemble import build_voting_ensemble
+from src.calibration import (
+    calculate_brier_score,
+    calculate_ece,
+    fit_platt_scaler,
+    fit_isotonic_calibrator
+)
 
 
 def calculate_metrics(y_true, y_pred, y_prob=None) -> dict:
@@ -43,14 +49,13 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
     Preprocessing (imputation, scaling, encoding) is fitted inside each outer training fold
     to prevent data leakage. Hyperparameters are tuned in the inner CV loop.
 
-    Evaluates:
-      - Random Forest
-      - XGBoost
-      - AdaBoost
-      - Soft-Voting Ensemble
+    In addition to baseline metrics, this pipeline evaluates:
+      - Calibration (Uncalibrated, Platt Scaling, Isotonic Regression)
+      - Out-of-fold predictions for fairness subgroup breakdowns.
 
     Returns:
-      nested_results: dict containing fold-level and aggregated metrics for each model.
+      nested_results: dict containing fold-level, aggregated metrics, calibration data,
+                      and out-of-fold predictions for each model.
     """
     X_raw = df.drop(columns=[target_col])
     y = df[target_col].values
@@ -60,7 +65,18 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
     model_names = ["random_forest", "xgboost", "adaboost", "ensemble"]
     fold_metrics = {name: [] for name in model_names}
 
-    outer_predictions = {name: {"y_true": [], "y_pred": [], "y_prob": []} for name in model_names}
+    # Store out-of-fold predictions for calibration and fairness analysis
+    outer_predictions = {
+        name: {
+            "y_true": [],
+            "y_pred": [],
+            "y_prob": [],
+            "y_prob_platt": [],
+            "y_prob_iso": [],
+            "test_indices": []
+        }
+        for name in model_names
+    }
 
     numeric_features, categorical_features = get_feature_lists()
 
@@ -107,12 +123,23 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
             y_pred = model.predict(X_test)
             y_prob = model.predict_proba(X_test)[:, 1]
 
+            # Fit calibrators strictly on training fold predictions to prevent leakage
+            y_train_prob = model.predict_proba(X_train)[:, 1]
+            platt = fit_platt_scaler(y_train_prob, y_train)
+            iso = fit_isotonic_calibrator(y_train_prob, y_train)
+
+            y_prob_platt = platt.predict_proba(y_prob.reshape(-1, 1))[:, 1]
+            y_prob_iso = iso.predict(y_prob)
+
             metrics = calculate_metrics(y_test, y_pred, y_prob)
             fold_metrics[name].append(metrics)
 
             outer_predictions[name]["y_true"].extend(y_test.tolist())
             outer_predictions[name]["y_pred"].extend(y_pred.tolist())
             outer_predictions[name]["y_prob"].extend(y_prob.tolist())
+            outer_predictions[name]["y_prob_platt"].extend(y_prob_platt.tolist())
+            outer_predictions[name]["y_prob_iso"].extend(y_prob_iso.tolist())
+            outer_predictions[name]["test_indices"].extend(test_idx.tolist())
 
     # Aggregate metrics across outer folds
     aggregated_results = {}
@@ -129,6 +156,33 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
             outer_predictions[name]["y_pred"]
         ).tolist()
 
+        # Calibration metrics across concatenated out-of-fold predictions
+        y_true_all = np.array(outer_predictions[name]["y_true"])
+        y_prob_uncal = np.array(outer_predictions[name]["y_prob"])
+        y_prob_platt = np.array(outer_predictions[name]["y_prob_platt"])
+        y_prob_iso = np.array(outer_predictions[name]["y_prob_iso"])
+
+        calibration = {
+            "uncalibrated": {
+                "y_true": y_true_all,
+                "y_prob": y_prob_uncal,
+                "brier": calculate_brier_score(y_true_all, y_prob_uncal),
+                "ece": calculate_ece(y_true_all, y_prob_uncal)
+            },
+            "platt": {
+                "y_true": y_true_all,
+                "y_prob": y_prob_platt,
+                "brier": calculate_brier_score(y_true_all, y_prob_platt),
+                "ece": calculate_ece(y_true_all, y_prob_platt)
+            },
+            "isotonic": {
+                "y_true": y_true_all,
+                "y_prob": y_prob_iso,
+                "brier": calculate_brier_score(y_true_all, y_prob_iso),
+                "ece": calculate_ece(y_true_all, y_prob_iso)
+            }
+        }
+
         aggregated_results[name] = {
             "accuracy_mean": float(np.mean(accs)),
             "accuracy_std": float(np.std(accs)),
@@ -141,7 +195,9 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
             "roc_auc_mean": float(np.mean(aucs)),
             "roc_auc_std": float(np.std(aucs)),
             "overall_confusion_matrix": overall_cm,
-            "fold_metrics": fold_metrics[name]
+            "fold_metrics": fold_metrics[name],
+            "calibration": calibration,
+            "out_of_fold_predictions": outer_predictions[name]
         }
 
     return aggregated_results
