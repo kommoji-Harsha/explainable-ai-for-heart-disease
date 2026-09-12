@@ -46,13 +46,23 @@ def load_data(data_path: str = "data/raw_cleveland.csv", url: str = DEFAULT_URL)
     return df
 
 
-def get_feature_lists():
+def get_feature_lists(df: pd.DataFrame = None):
     """
-    Returns tuple of (numeric_features, categorical_features)
+    Returns tuple of (numeric_features, categorical_features) based on DataFrame columns if provided,
+    otherwise returns default Cleveland full feature set.
     """
-    # Continuous numeric features
+    if df is not None:
+        cols = [c for c in df.columns if c != "target"]
+        default_num = ["age", "trestbps", "chol", "thalach", "oldpeak", "sysBP", "totChol"]
+        default_cat = ["sex", "cp", "fbs", "restecg", "exang", "slope", "ca", "thal", "diabetes"]
+
+        numeric_features = [c for c in cols if c in default_num or pd.api.types.is_float_dtype(df[c])]
+        categorical_features = [c for c in cols if c not in numeric_features]
+        return numeric_features, categorical_features
+
+    # Default continuous numeric features for full Cleveland
     numeric_features = ["age", "trestbps", "chol", "thalach", "oldpeak"]
-    # Categorical / discrete features
+    # Default categorical / discrete features
     categorical_features = ["sex", "cp", "fbs", "restecg", "exang", "slope", "ca", "thal"]
     return numeric_features, categorical_features
 
@@ -65,21 +75,23 @@ def build_preprocessor(numeric_features=None, categorical_features=None):
     if numeric_features is None or categorical_features is None:
         numeric_features, categorical_features = get_feature_lists()
 
-    num_pipeline = Pipeline([
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler())
-    ])
+    transformers = []
 
-    cat_pipeline = Pipeline([
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
-    ])
+    if len(numeric_features) > 0:
+        num_pipeline = Pipeline([
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler())
+        ])
+        transformers.append(("num", num_pipeline, numeric_features))
 
-    preprocessor = ColumnTransformer([
-        ("num", num_pipeline, numeric_features),
-        ("cat", cat_pipeline, categorical_features)
-    ])
+    if len(categorical_features) > 0:
+        cat_pipeline = Pipeline([
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+        ])
+        transformers.append(("cat", cat_pipeline, categorical_features))
 
+    preprocessor = ColumnTransformer(transformers)
     return preprocessor
 
 
@@ -90,7 +102,7 @@ def preprocess_data(df: pd.DataFrame, target_col: str = "target"):
     X = df.drop(columns=[target_col]) if target_col in df.columns else df.copy()
     y = df[target_col].values if target_col in df.columns else None
 
-    numeric_features, categorical_features = get_feature_lists()
+    numeric_features, categorical_features = get_feature_lists(X)
     preprocessor = build_preprocessor(numeric_features, categorical_features)
 
     X_processed = preprocessor.fit_transform(X)
@@ -103,7 +115,10 @@ def get_feature_names(preprocessor, numeric_features, categorical_features):
     """
     Extract feature names after OneHotEncoder transformation.
     """
-    cat_transformer = preprocessor.named_transformers_["cat"]
-    onehot = cat_transformer.named_steps["onehot"]
-    cat_feature_names = list(onehot.get_feature_names_out(categorical_features))
-    return list(numeric_features) + list(cat_feature_names)
+    feature_names = list(numeric_features)
+    if "cat" in preprocessor.named_transformers_:
+        cat_transformer = preprocessor.named_transformers_["cat"]
+        onehot = cat_transformer.named_steps["onehot"]
+        cat_feature_names = list(onehot.get_feature_names_out(categorical_features))
+        feature_names += cat_feature_names
+    return feature_names

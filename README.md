@@ -1,6 +1,6 @@
 # Optimized, Explainable, Reliable Ensemble Framework for Heart Disease Prediction
 
-This repository implements the research framework for heart disease prediction based on the UCI Cleveland dataset.
+This repository implements the research framework for heart disease prediction based on the UCI Cleveland dataset and cross-dataset external validation on the Framingham Heart Study cohort.
 
 ## Framework Architecture & Progression
 
@@ -16,16 +16,16 @@ This repository implements the research framework for heart disease prediction b
 ### Month 2 — Reliability Layer
 - **Probability Calibration (`src/calibration.py`)**: Computes Brier Score Loss and Expected Calibration Error (ECE) for uncalibrated probabilities, Platt Scaling (logistic sigmoid), and Isotonic Regression. To prevent in-sample overfitting, outer training folds are split into 75% model-fit and 25% calibration-fit subsets, fitting calibrators strictly on out-of-sample predictions before refitting models on full outer training folds. Calibration curves are saved to `results/`.
 - **Subgroup Fairness Analysis (`src/fairness.py`)**: Disaggregates model performance (Accuracy, Recall, ROC-AUC) across demographic subgroups: `sex` (Male/Female) and `age_band` (`< 50`, `50-60`, `> 60`). Includes explicit methodological caveats regarding small subgroup sample sizes (e.g. N < 100).
-- **Notebook**: `notebooks/02_reliability_layer.ipynb`
+- **Per-Patient Model Agreement Scoring (`src/agreement.py`)**: Measures consensus across base classifiers per patient using probability standard deviation, categorizing patients into `high agreement` (std < 0.05), `moderate agreement` (0.05 <= std < 0.15), and `low agreement` (std >= 0.15), generating plain-language warning flags.
+- **Notebooks**: `notebooks/02_reliability_layer.ipynb` and `notebooks/03_model_agreement.ipynb`
 
-### Per-Patient Model Agreement Scoring (`src/agreement.py`)
-- **Rationale**: An ensemble's averaged probability output can appear unremarkable (e.g., 53% probability) even when individual base classifiers strongly disagree (e.g., Random Forest predicts 20%, XGBoost predicts 85%, and AdaBoost predicts 54%). Model agreement scoring measures internal model consensus per patient.
-- **Key Difference from Calibration & Fairness**:
-  - *Calibration* checks overall probability honesty against true outcomes across populations.
-  - *Fairness* checks model equity across demographic subgroups.
-  - *Model Agreement* checks internal model consistency for an individual patient at prediction time.
-- **Implementation**: Computes standard deviation across the three base classifier probabilities (RF, XGBoost, AdaBoost) and categorizes patients into `high agreement` (std < 0.05), `moderate agreement` (0.05 <= std < 0.15), or `low agreement` (std >= 0.15). Generates plain-language warning flags (e.g., *"Model agreement: low — RF: 31%, XGBoost: 75%, AdaBoost: 58%. Interpret this prediction with extra caution."*).
-- **Notebook**: `notebooks/03_model_agreement.ipynb`
+### Month 3 — Cross-Dataset External Validation (`src/data_harmonization.py` & `src/external_validation.py`)
+- **Data Harmonization**: Maps the UCI Cleveland dataset (303 rows) and Framingham Heart Study dataset (4,240 rows) onto a unified common 5-feature schema: `age` (years), `sex` (0=Female, 1=Male), `sysBP` (systolic BP in mmHg), `totChol` (total cholesterol in mg/dL), `diabetes` (0/1 binary).
+- **Documentation of Feature Loss**:
+  - *Dropped from Cleveland*: `cp`, `restecg`, `thalach`, `exang`, `oldpeak`, `slope`, `ca`, `thal`.
+  - *Dropped from Framingham*: `education`, `currentSmoker`, `cigsPerDay`, `BPMeds`, `prevalentStroke`, `prevalentHyp`, `diaBP`, `BMI`, `heartRate`, `glucose`.
+- **External Evaluation**: Trains tuned classifiers and soft-voting ensemble on the full Cleveland dataset (harmonized schema) and evaluates them directly on the unseen Framingham dataset.
+- **Notebook**: `notebooks/04_cross_dataset_validation.ipynb`
 
 ---
 
@@ -34,14 +34,17 @@ This repository implements the research framework for heart disease prediction b
 .
 ├── config.yaml                       # Global project and hyperparameter configuration
 ├── data/
-│   └── raw_cleveland.csv             # UCI Cleveland dataset
+│   ├── raw_cleveland.csv             # UCI Cleveland dataset
+│   └── raw_framingham.csv            # Framingham Heart Study dataset
 ├── notebooks/
 │   ├── 01_baseline_pipeline.ipynb    # Month 1 Baseline Notebook
 │   ├── 02_reliability_layer.ipynb    # Month 2 Reliability Layer Notebook
-│   └── 03_model_agreement.ipynb      # Per-Patient Model Agreement Notebook
+│   ├── 03_model_agreement.ipynb      # Per-Patient Model Agreement Notebook
+│   └── 04_cross_dataset_validation.ipynb # Month 3 Cross-Dataset External Validation
 ├── results/                          # Output plots and visualizations
 │   ├── adaboost_calibration_curve.png
 │   ├── ensemble_calibration_curve.png
+│   ├── framingham_external_confusion_matrices.png
 │   ├── model_agreement_distribution.png
 │   ├── nested_cv_confusion_matrices.png
 │   ├── random_forest_calibration_curve.png
@@ -58,12 +61,16 @@ This repository implements the research framework for heart disease prediction b
 │   ├── explainability.py             # SHAP explanation generation and visualization
 │   ├── calibration.py                # Brier score, ECE, Platt scaling, Isotonic regression
 │   ├── fairness.py                   # Demographic subgroup performance breakdown & caveats
-│   └── agreement.py                  # Per-patient model agreement scoring & flag generation
+│   ├── agreement.py                  # Per-patient model agreement scoring & flag generation
+│   ├── data_harmonization.py         # Cleveland & Framingham dataset schema harmonization
+│   └── external_validation.py        # Cross-dataset model training and external evaluation
 ├── tests/
 │   ├── test_pipeline.py              # Unit tests for baseline pipeline & evaluation
 │   ├── test_calibration_fairness.py # Unit tests for calibration and fairness metrics
-│   └── test_agreement.py            # Unit tests for model agreement scoring & flags
+│   ├── test_agreement.py            # Unit tests for model agreement scoring & flags
+│   └── test_data_harmonization.py   # Unit tests for dataset harmonization & external validation
 ├── requirements.txt                  # Pinned dependency requirements
+├── SRS.md                            # Software Requirements Specification
 └── README.md
 ```
 
@@ -101,41 +108,28 @@ jupyter nbconvert --to notebook --execute notebooks/02_reliability_layer.ipynb -
 
 # Per-Patient Model Agreement Analysis
 jupyter nbconvert --to notebook --execute notebooks/03_model_agreement.ipynb --output notebooks/03_model_agreement.ipynb
+
+# Month 3 Cross-Dataset External Validation
+jupyter nbconvert --to notebook --execute notebooks/04_cross_dataset_validation.ipynb --output notebooks/04_cross_dataset_validation.ipynb
 ```
 
 ---
 
 ## Pipeline Summary Findings
 
-### 1. Nested Cross-Validation Metrics (5-Fold Outer / 3-Fold Inner)
+### 1. Full Cleveland Feature Set Nested CV (Month 1 Baseline)
 - **Random Forest**: Accuracy ~82.8%, F1 ~80.3%, ROC-AUC ~90.7%
 - **XGBoost**: Accuracy ~82.2%, F1 ~80.3%, ROC-AUC ~90.8%
 - **AdaBoost**: Accuracy ~82.2%, F1 ~79.8%, ROC-AUC ~88.8%
 - **Soft Ensemble**: Accuracy ~83.2%, F1 ~81.2%, ROC-AUC ~91.3%
 
-### 2. Reliability & Calibration Metrics (Out-Of-Fold Nested CV with Held-Out Calibration Fits)
+### 2. Cross-Dataset External Validation Metrics (Month 3 Harmonized Schema)
 
-| Model | Calibration State | Brier Score (Lower is better) | ECE (Lower is better) |
-|---|---|---|---|
-| **Random Forest** | Uncalibrated | 0.1244 | 0.0877 |
-| | Platt Scaling | **0.1274** | **0.0611** |
-| | Isotonic Regression | 0.1401 | 0.0811 |
-| **XGBoost** | Uncalibrated | 0.1186 | 0.0373 |
-| | Platt Scaling | 0.1262 | 0.0423 |
-| | Isotonic Regression | 0.1336 | 0.0854 |
-| **AdaBoost** | Uncalibrated | 0.1510 | 0.1810 |
-| | Platt Scaling | **0.1266** | **0.0499** |
-| | Isotonic Regression | 0.1430 | 0.0890 |
-| **Ensemble** | Uncalibrated | 0.1248 | 0.1022 |
-| | Platt Scaling | **0.1237** | **0.0691** |
-| | Isotonic Regression | 0.1341 | 0.0731 |
-
-### 3. Model Agreement Breakdown (Out-Of-Fold Test Predictions)
-
-| Agreement Level | Std Dev Threshold | Patient Count (N) | % of Cohort | Accuracy |
+| Model | Cleveland CV Accuracy (5 Features) | Framingham Ext Accuracy (5 Features) | Cleveland CV ROC-AUC | Framingham Ext ROC-AUC |
 |---|---|---|---|---|
-| **High Agreement** | std < 0.05 | 224 | 73.9% | **89.3%** |
-| **Moderate Agreement** | 0.05 <= std < 0.15 | 74 | 24.4% | 67.6% |
-| **Low Agreement** | std >= 0.15 | 5 | 1.7% | 60.0% |
+| **Random Forest** | 0.6801 | **0.7302** | 0.7304 | **0.6559** |
+| **XGBoost** | 0.6700 | **0.7771** | 0.7271 | **0.6764** |
+| **AdaBoost** | 0.6336 | **0.7863** | 0.6973 | **0.6747** |
+| **Soft Ensemble** | 0.6799 | **0.7545** | 0.7295 | **0.6715** |
 
-*Key finding: Prediction accuracy is significantly higher when base models agree (89.3% accuracy for high agreement patients) compared to when models disagree (67.6% for moderate agreement, 60.0% for low agreement). Flagging disagreement provides actionable clinical risk signaling.*
+*Key finding: Moving from full Cleveland features (13 attributes) to a 5-feature harmonized schema reduces internal CV performance, but models trained on Cleveland generalize to the external Framingham cohort (4,240 patients) with moderate ROC-AUC (~0.6715 for Ensemble, ~0.6764 for XGBoost).*

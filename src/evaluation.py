@@ -85,7 +85,7 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
         for name in model_names
     }
 
-    numeric_features, categorical_features = get_feature_lists()
+    numeric_features, categorical_features = get_feature_lists(X_raw)
 
     for fold, (train_idx, test_idx) in enumerate(outer_cv.split(X_raw, y)):
         X_train_raw, X_test_raw = X_raw.iloc[train_idx], X_raw.iloc[test_idx]
