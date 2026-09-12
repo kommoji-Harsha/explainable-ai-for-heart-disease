@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -53,6 +53,12 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
       - Calibration (Uncalibrated, Platt Scaling, Isotonic Regression)
       - Out-of-fold predictions for fairness subgroup breakdowns.
 
+    Calibration methodology:
+      To prevent overfitting/distorted calibration caused by in-sample tree classifier confidence,
+      outer training folds are split into model-fit (75%) and calibration-fit (25%) subsets.
+      Calibrators are fitted on predictions from the calibration-fit subset, and models are then
+      refitted on the full outer training fold before evaluating on test folds.
+
     Returns:
       nested_results: dict containing fold-level, aggregated metrics, calibration data,
                       and out-of-fold predictions for each model.
@@ -100,33 +106,63 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
             X_train, y_train, cv=inner_splits, n_trials=n_trials, random_state=random_state + fold
         )
 
-        rf_model = get_random_forest(random_state=random_state, **rf_params)
-        xgb_model = get_xgboost(random_state=random_state, **xgb_params)
-        ada_model = get_adaboost(random_state=random_state, **ada_params)
+        # Split outer training fold into model-fit (75%) and calibration-fit (25%) subsets
+        X_mfit, X_calfit, y_mfit, y_calfit = train_test_split(
+            X_train, y_train, test_size=0.25, random_state=random_state + fold, stratify=y_train
+        )
 
-        rf_model.fit(X_train, y_train)
-        xgb_model.fit(X_train, y_train)
-        ada_model.fit(X_train, y_train)
+        # Instantiate models with tuned hyperparameters
+        rf_mfit = get_random_forest(random_state=random_state, **rf_params)
+        xgb_mfit = get_xgboost(random_state=random_state, **xgb_params)
+        ada_mfit = get_adaboost(random_state=random_state, **ada_params)
 
-        models = {
-            "random_forest": rf_model,
-            "xgboost": xgb_model,
-            "adaboost": ada_model
+        # Fit on model-fit subset
+        rf_mfit.fit(X_mfit, y_mfit)
+        xgb_mfit.fit(X_mfit, y_mfit)
+        ada_mfit.fit(X_mfit, y_mfit)
+
+        mfit_models = {
+            "random_forest": rf_mfit,
+            "xgboost": xgb_mfit,
+            "adaboost": ada_mfit
         }
+        ens_mfit = build_voting_ensemble(mfit_models, voting="soft")
+        ens_mfit.fit(X_mfit, y_mfit)
+        mfit_models["ensemble"] = ens_mfit
 
-        ensemble = build_voting_ensemble(models, voting="soft")
-        ensemble.fit(X_train, y_train)
-        models["ensemble"] = ensemble
+        # Fit calibrators on out-of-sample predictions from calibration-fit subset
+        calibrators = {}
+        for name, m_mfit in mfit_models.items():
+            y_calfit_prob = m_mfit.predict_proba(X_calfit)[:, 1]
+            platt = fit_platt_scaler(y_calfit_prob, y_calfit)
+            iso = fit_isotonic_calibrator(y_calfit_prob, y_calfit)
+            calibrators[name] = {"platt": platt, "iso": iso}
 
-        # Evaluate models on test fold
-        for name, model in models.items():
+        # Refit models on full outer training fold
+        rf_full = get_random_forest(random_state=random_state, **rf_params)
+        xgb_full = get_xgboost(random_state=random_state, **xgb_params)
+        ada_full = get_adaboost(random_state=random_state, **ada_params)
+
+        rf_full.fit(X_train, y_train)
+        xgb_full.fit(X_train, y_train)
+        ada_full.fit(X_train, y_train)
+
+        full_models = {
+            "random_forest": rf_full,
+            "xgboost": xgb_full,
+            "adaboost": ada_full
+        }
+        ens_full = build_voting_ensemble(full_models, voting="soft")
+        ens_full.fit(X_train, y_train)
+        full_models["ensemble"] = ens_full
+
+        # Evaluate full models and apply calibrators on test fold
+        for name, model in full_models.items():
             y_pred = model.predict(X_test)
             y_prob = model.predict_proba(X_test)[:, 1]
 
-            # Fit calibrators strictly on training fold predictions to prevent leakage
-            y_train_prob = model.predict_proba(X_train)[:, 1]
-            platt = fit_platt_scaler(y_train_prob, y_train)
-            iso = fit_isotonic_calibrator(y_train_prob, y_train)
+            platt = calibrators[name]["platt"]
+            iso = calibrators[name]["iso"]
 
             y_prob_platt = platt.predict_proba(y_prob.reshape(-1, 1))[:, 1]
             y_prob_iso = iso.predict(y_prob)

@@ -1,8 +1,10 @@
 import pytest
 import numpy as np
 import pandas as pd
+from unittest.mock import MagicMock
 from src.calibration import calculate_brier_score, calculate_ece, fit_platt_scaler, fit_isotonic_calibrator
 from src.fairness import compute_fairness_breakdown, evaluate_subgroup_performance, create_age_bands
+from src.evaluation import evaluate_nested_cv
 
 
 def test_calculate_brier_score_known_values():
@@ -74,3 +76,53 @@ def test_create_age_bands():
     df = pd.DataFrame({"age": [45, 50, 60, 65]})
     bands = create_age_bands(df)
     assert bands.tolist() == ["< 50", "50-60", "50-60", "> 60"]
+
+
+def test_calibrator_fit_uses_out_of_sample_predictions(monkeypatch):
+    """
+    Verifies that calibrator fitting function fit_platt_scaler is never called with
+    predictions made on the exact same dataset used to fit the underlying classifier (in-sample predictions).
+    """
+    from src import evaluation
+
+    fit_call_args = []
+    original_fit_platt = evaluation.fit_platt_scaler
+
+    def mock_fit_platt(y_prob, y_true):
+        # Record tuple of length of predictions passed into fit_platt_scaler
+        fit_call_args.append((len(y_prob), len(y_true)))
+        return original_fit_platt(y_prob, y_true)
+
+    monkeypatch.setattr(evaluation, "fit_platt_scaler", mock_fit_platt)
+
+    # Synthetic dataset of 20 samples
+    N = 20
+    df = pd.DataFrame({
+        "age": np.linspace(30, 70, N),
+        "sex": [0.0, 1.0] * (N // 2),
+        "cp": [1.0, 2.0, 3.0, 4.0] * (N // 4),
+        "trestbps": [120.0] * N,
+        "chol": [200.0] * N,
+        "fbs": [0.0] * N,
+        "restecg": [0.0] * N,
+        "thalach": [150.0] * N,
+        "exang": [0.0] * N,
+        "oldpeak": [1.0] * N,
+        "slope": [1.0] * N,
+        "ca": [0.0] * N,
+        "thal": [3.0] * N,
+        "target": [0, 1] * (N // 2)
+    })
+
+    # Execute 2-fold outer CV
+    # Outer train size = 10 samples.
+    # Model-fit subset = 7 samples (75%).
+    # Calibration-fit subset = 3 samples (25%).
+    evaluation.evaluate_nested_cv(df, outer_splits=2, inner_splits=2, n_trials=1, random_state=42)
+
+    assert len(fit_call_args) > 0
+    for prob_len, true_len in fit_call_args:
+        # In-sample size would be 10 (the full outer train fold).
+        # Out-of-sample calibration-fit size should be 3 (25% of 10 for test split), NOT 10!
+        assert prob_len < 10, f"Calibrator was fit on full in-sample train set of size {prob_len}!"
+        assert prob_len == 3 or prob_len == 2

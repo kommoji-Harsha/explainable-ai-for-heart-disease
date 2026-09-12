@@ -14,7 +14,7 @@ This repository implements the research framework for heart disease prediction b
 - **Notebook**: `notebooks/01_baseline_pipeline.ipynb`
 
 ### Month 2 — Reliability Layer
-- **Probability Calibration (`src/calibration.py`)**: Computes Brier Score Loss and Expected Calibration Error (ECE) for uncalibrated probabilities, Platt Scaling (logistic sigmoid), and Isotonic Regression. Calibrators are fitted strictly on training fold predictions during nested CV to prevent data leakage. Calibration curves saved to `results/`.
+- **Probability Calibration (`src/calibration.py`)**: Computes Brier Score Loss and Expected Calibration Error (ECE) for uncalibrated probabilities, Platt Scaling (logistic sigmoid), and Isotonic Regression. To prevent in-sample overfitting, outer training folds are split into 75% model-fit and 25% calibration-fit subsets, fitting calibrators strictly on out-of-sample predictions before refitting models on full outer training folds. Calibration curves are saved to `results/`.
 - **Subgroup Fairness Analysis (`src/fairness.py`)**: Disaggregates model performance (Accuracy, Recall, ROC-AUC) across demographic subgroups: `sex` (Male/Female) and `age_band` (`< 50`, `50-60`, `> 60`). Includes explicit methodological caveats regarding small subgroup sample sizes (e.g. N < 100).
 - **Notebook**: `notebooks/02_reliability_layer.ipynb`
 
@@ -97,12 +97,24 @@ jupyter nbconvert --to notebook --execute notebooks/02_reliability_layer.ipynb -
 - **AdaBoost**: Accuracy ~82.2%, F1 ~79.8%, ROC-AUC ~88.8%
 - **Soft Ensemble**: Accuracy ~83.2%, F1 ~81.2%, ROC-AUC ~91.3%
 
-### 2. Reliability & Calibration Metrics (Out-Of-Fold Nested CV)
-- **Uncalibrated Ensemble**: Brier Score ~0.1397, ECE ~0.1302
-- **Platt Calibrated Ensemble**: Brier Score ~0.1288, ECE ~0.0862
-- **Isotonic Calibrated Ensemble**: Brier Score ~0.1312, ECE ~0.0915
+### 2. Reliability & Calibration Metrics (Out-Of-Fold Nested CV with Held-Out Calibration Fits)
 
-*Platt scaling effectively reduces Expected Calibration Error (ECE) and improves probability reliability across predictions.*
+| Model | Calibration State | Brier Score (Lower is better) | ECE (Lower is better) |
+|---|---|---|---|
+| **Random Forest** | Uncalibrated | 0.1244 | 0.0877 |
+| | Platt Scaling | **0.1274** | **0.0611** |
+| | Isotonic Regression | 0.1401 | 0.0811 |
+| **XGBoost** | Uncalibrated | 0.1186 | 0.0373 |
+| | Platt Scaling | 0.1262 | 0.0423 |
+| | Isotonic Regression | 0.1336 | 0.0854 |
+| **AdaBoost** | Uncalibrated | 0.1510 | 0.1810 |
+| | Platt Scaling | **0.1266** | **0.0499** |
+| | Isotonic Regression | 0.1430 | 0.0890 |
+| **Ensemble** | Uncalibrated | 0.1248 | 0.1022 |
+| | Platt Scaling | **0.1237** | **0.0691** |
+| | Isotonic Regression | 0.1341 | 0.0731 |
+
+*Key finding: Platt scaling trained on held-out calibration-fit predictions effectively reduces Expected Calibration Error (ECE) across uncalibrated models (e.g. AdaBoost ECE reduced from 0.1810 to 0.0499; Ensemble ECE reduced from 0.1022 to 0.0691; RF ECE reduced from 0.0877 to 0.0611).*
 
 ### 3. Subgroup Fairness Breakdown (Soft Ensemble)
 - **Sex Breakdown**:
