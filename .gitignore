@@ -216,3 +216,32 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --------------------------------------------------
+# Machine Learning & Data Additions
+# --------------------------------------------------
+# Data directories and formats
+data/
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+
+# Saved model artifacts & checkpoints
+models/
+checkpoints/
+*.pkl
+*.pickle
+*.joblib
+*.pt
+*.pth
+*.onnx
+
+# Experiment tracking & metrics outputs
+wandb/
+mlruns/
+lightning_logs/
+outputs/
+reports/figures/
