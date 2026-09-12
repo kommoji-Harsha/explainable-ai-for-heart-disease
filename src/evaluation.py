@@ -19,6 +19,7 @@ from src.calibration import (
     fit_platt_scaler,
     fit_isotonic_calibrator
 )
+from src.agreement import analyze_patient_agreements, summarize_agreement_performance
 
 
 def calculate_metrics(y_true, y_pred, y_prob=None) -> dict:
@@ -49,19 +50,19 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
     Preprocessing (imputation, scaling, encoding) is fitted inside each outer training fold
     to prevent data leakage. Hyperparameters are tuned in the inner CV loop.
 
-    In addition to baseline metrics, this pipeline evaluates:
+    Evaluates:
       - Calibration (Uncalibrated, Platt Scaling, Isotonic Regression)
       - Out-of-fold predictions for fairness subgroup breakdowns.
+      - Per-patient model agreement across RF, XGBoost, and AdaBoost base probabilities.
 
     Calibration methodology:
-      To prevent overfitting/distorted calibration caused by in-sample tree classifier confidence,
-      outer training folds are split into model-fit (75%) and calibration-fit (25%) subsets.
+      Outer training folds are split into model-fit (75%) and calibration-fit (25%) subsets.
       Calibrators are fitted on predictions from the calibration-fit subset, and models are then
       refitted on the full outer training fold before evaluating on test folds.
 
     Returns:
       nested_results: dict containing fold-level, aggregated metrics, calibration data,
-                      and out-of-fold predictions for each model.
+                      out-of-fold predictions, and model agreement breakdown.
     """
     X_raw = df.drop(columns=[target_col])
     y = df[target_col].values
@@ -71,7 +72,7 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
     model_names = ["random_forest", "xgboost", "adaboost", "ensemble"]
     fold_metrics = {name: [] for name in model_names}
 
-    # Store out-of-fold predictions for calibration and fairness analysis
+    # Store out-of-fold predictions for calibration, fairness, and agreement analysis
     outer_predictions = {
         name: {
             "y_true": [],
@@ -235,5 +236,20 @@ def evaluate_nested_cv(df, target_col="target", outer_splits=5, inner_splits=3, 
             "calibration": calibration,
             "out_of_fold_predictions": outer_predictions[name]
         }
+
+    # Model agreement analysis across out-of-fold predictions
+    df_patient_agreement = analyze_patient_agreements(
+        y_true=np.array(outer_predictions["ensemble"]["y_true"]),
+        y_pred_ensemble=np.array(outer_predictions["ensemble"]["y_pred"]),
+        rf_probs=np.array(outer_predictions["random_forest"]["y_prob"]),
+        xgb_probs=np.array(outer_predictions["xgboost"]["y_prob"]),
+        ada_probs=np.array(outer_predictions["adaboost"]["y_prob"])
+    )
+    agreement_summary = summarize_agreement_performance(df_patient_agreement)
+
+    aggregated_results["agreement_analysis"] = {
+        "patient_df": df_patient_agreement,
+        "summary_table": agreement_summary
+    }
 
     return aggregated_results
