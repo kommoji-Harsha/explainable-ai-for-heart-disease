@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score, recall_score, roc_auc_score
+from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, roc_auc_score, confusion_matrix
 
 
 CAVEAT_MESSAGE = (
-    "NOTE / CAVEAT: Subgroup sample sizes in healthcare datasets (e.g. per-site or female cohorts) "
-    "can be small or imbalanced (e.g. Switzerland N=123, VA N=200). Performance breakdowns across "
-    "subgroups should be interpreted as indicative/exploratory rather than statistically conclusive."
+    "NOTE / CAVEAT: Subgroup and per-site sample sizes vary in size (e.g. small female or per-site cohorts) "
+    "and disease prevalence (e.g. Switzerland disease prevalence is 92.7% while Cleveland is 45.9%). "
+    "High Accuracy or Recall in high-prevalence cohorts can reflect positive-class prediction bias unless "
+    "contextualized with Precision, Specificity, and F1-score. Subgroup breakdowns should be read as exploratory/indicative."
 )
 
 
@@ -25,7 +26,8 @@ def create_age_bands(df: pd.DataFrame, age_col: str = "age") -> pd.Series:
 
 def evaluate_subgroup_performance(df: pd.DataFrame, y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, group_col: str) -> pd.DataFrame:
     """
-    Computes Accuracy, Recall, ROC-AUC, and sample size for each subgroup in group_col.
+    Computes Accuracy, Recall, Precision, Specificity (True Negative Rate), F1, ROC-AUC,
+    and sample size for each subgroup in group_col.
 
     Args:
         df: DataFrame containing the group column (same length/order as y_true).
@@ -35,7 +37,7 @@ def evaluate_subgroup_performance(df: pd.DataFrame, y_true: np.ndarray, y_pred: 
         group_col: Column name in df to group by (e.g. 'sex', 'age_band', 'source_site').
 
     Returns:
-        DataFrame with subgroup metrics and sample sizes.
+        DataFrame with comprehensive subgroup performance metrics and sample sizes.
     """
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
@@ -54,6 +56,13 @@ def evaluate_subgroup_performance(df: pd.DataFrame, y_true: np.ndarray, y_pred: 
 
         acc = float(accuracy_score(sub_true, sub_pred)) if n_sub > 0 else np.nan
         rec = float(recall_score(sub_true, sub_pred, zero_division=0)) if n_sub > 0 else np.nan
+        prec = float(precision_score(sub_true, sub_pred, zero_division=0)) if n_sub > 0 else np.nan
+        f1 = float(f1_score(sub_true, sub_pred, zero_division=0)) if n_sub > 0 else np.nan
+
+        # Specificity (True Negative Rate = TN / (TN + FP))
+        cm = confusion_matrix(sub_true, sub_pred, labels=[0, 1])
+        tn, fp, fn, tp = cm.ravel()
+        spec = float(tn / (tn + fp)) if (tn + fp) > 0 else np.nan
 
         # ROC-AUC requires both classes present in subgroup
         if len(np.unique(sub_true)) > 1:
@@ -61,11 +70,17 @@ def evaluate_subgroup_performance(df: pd.DataFrame, y_true: np.ndarray, y_pred: 
         else:
             auc = np.nan
 
+        disease_prev = float(np.mean(sub_true)) * 100 if n_sub > 0 else np.nan
+
         rows.append({
             "subgroup": str(g),
             "sample_size": n_sub,
+            "disease_prevalence": f"{disease_prev:.1f}%",
             "accuracy": acc,
             "recall": rec,
+            "precision": prec,
+            "specificity": spec,
+            "f1_score": f1,
             "roc_auc": auc
         })
 
@@ -78,8 +93,8 @@ def compute_fairness_breakdown(df: pd.DataFrame, y_true: np.ndarray, y_pred: np.
     Computes subgroup fairness breakdown across sex, age bands, and source_site (if present).
 
     Caveat Notice:
-        Subgroup sample sizes and per-site cohorts vary in size; results should be read as
-        indicative, not statistically conclusive.
+        Subgroup sample sizes and per-site cohorts vary in size and disease prevalence.
+        Precision and Specificity contextualize Accuracy/Recall to guard against prevalence bias.
 
     Args:
         df: Original DataFrame (containing 'sex', 'age', and optionally 'source_site').

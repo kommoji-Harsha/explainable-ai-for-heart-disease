@@ -2,7 +2,7 @@ import os
 import pytest
 import numpy as np
 import pandas as pd
-from src.preprocessing import load_combined_dataset, preprocess_data, COLUMN_NAMES, UCI_DATASET_URLS
+from src.preprocessing import load_combined_dataset, load_single_site, preprocess_data, COLUMN_NAMES, UCI_DATASET_URLS
 
 
 def test_load_combined_dataset_structure(tmp_path):
@@ -32,6 +32,32 @@ def test_load_combined_dataset_structure(tmp_path):
     report_df = pd.read_csv(report_path, index_col=0)
     assert "ca" in report_df.columns
     assert "thal" in report_df.columns
+    assert "chol" in report_df.columns
+
+
+def test_zero_as_missing_conversion_site_specificity(tmp_path):
+    """
+    Verifies that 0-as-missing conversion for physiologically impossible continuous variables
+    (chol, trestbps, thalach) applies specifically to non-Cleveland sites (Hungary, Switzerland, VA),
+    and does NOT convert legitimate zeros in Cleveland or in count/categorical columns.
+    """
+    data_dir = tmp_path / "data"
+
+    # Load Cleveland: zero values in legitimate features like ca or oldpeak should remain 0
+    df_clev = load_single_site("cleveland", UCI_DATASET_URLS["cleveland"], data_dir=str(data_dir))
+    # In Cleveland, chol and trestbps have 0 zero values anyway
+    assert (df_clev["chol"] == 0).sum() == 0
+    assert (df_clev["trestbps"] == 0).sum() == 0
+
+    # Load Switzerland: all 123 raw chol values were recorded as 0 -> should now be converted to NaN
+    df_swiss = load_single_site("switzerland", UCI_DATASET_URLS["switzerland"], data_dir=str(data_dir))
+    assert (df_swiss["chol"] == 0).sum() == 0
+    assert df_swiss["chol"].isna().sum() == 123
+
+    # Load VA Long Beach: 49 chol zeros and 1 trestbps zero -> should now be converted to NaN
+    df_va = load_single_site("va_long_beach", UCI_DATASET_URLS["va_long_beach"], data_dir=str(data_dir))
+    assert (df_va["chol"] == 0).sum() == 0
+    assert (df_va["trestbps"] == 0).sum() == 0
 
 
 def test_combined_dataset_preprocessing():

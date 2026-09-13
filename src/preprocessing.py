@@ -27,6 +27,17 @@ DEFAULT_RAW_DIR = "data"
 def load_single_site(site_name: str, url: str, data_dir: str = DEFAULT_RAW_DIR, file_path: str = None) -> pd.DataFrame:
     """
     Loads raw dataset for a single site. Downloads and caches locally if not present.
+
+    ZERO-AS-MISSING CONVERSION LOGIC:
+    In non-Cleveland UCI source files (Hungarian, Switzerland, VA Long Beach), missing measurements in
+    physiologically continuous variables were recorded as a literal 0 rather than '?'.
+      - `switzerland`: 123 zero values in `chol` (100% of rows in Switzerland!)
+      - `va_long_beach`: 49 zero values in `chol`, 1 zero value in `trestbps`
+      - `hungarian`: 0 zero values in `chol`/`trestbps`/`thalach` (already marked with '?')
+      - `cleveland`: 0 zero values in `chol`/`trestbps`/`thalach`. (Zero values in `ca` or `oldpeak` are legitimate).
+
+    To prevent fake zero measurements from contaminating median imputation and scaling statistics,
+    a value of 0 in ['chol', 'trestbps', 'thalach'] is explicitly converted to NaN for non-Cleveland sites.
     """
     if file_path is None:
         file_path = os.path.join(data_dir, f"raw_{site_name}.csv")
@@ -49,6 +60,13 @@ def load_single_site(site_name: str, url: str, data_dir: str = DEFAULT_RAW_DIR, 
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    # Fix Issue 1: Zero-as-missing conversion for physiologically impossible continuous features in non-Cleveland sites
+    if site_name != "cleveland":
+        implausible_zero_cols = ["chol", "trestbps", "thalach"]
+        for col in implausible_zero_cols:
+            if col in df.columns:
+                df[col] = df[col].replace(0, np.nan)
+
     # Target binarization (num > 0 -> 1)
     if "target" in df.columns:
         df["target"] = (df["target"] > 0).astype(int)
@@ -66,13 +84,13 @@ def load_combined_dataset(data_dir: str = DEFAULT_RAW_DIR, results_dir: str = "r
     Total N = 920.
 
     Adds metadata column `source_site`.
-    Handles missing value indicators ('?'), binarizes target (num > 0 -> 1).
+    Handles missing value indicators ('?'), fixes zero-as-missing values, and binarizes target (num > 0 -> 1).
 
-    DOCUMENTED DATA QUALITY LIMITATION:
-    - Combined missingness in `ca` (number of major vessels) is 66.4% across the 4 sites
-      (Cleveland: 1.3%, Hungarian: 99.0%, Switzerland: 95.9%, VA: 99.0%).
-    - Combined missingness in `thal` (thalassemia) is 52.8% across the 4 sites
-      (Cleveland: 0.7%, Hungarian: 90.5%, Switzerland: 42.3%, VA: 83.0%).
+    DOCUMENTED DATA QUALITY LIMITATIONS:
+    - Combined missingness in `ca` (number of major vessels) is 66.4% across the 4 sites.
+    - Combined missingness in `thal` (thalassemia) is 52.8% across the 4 sites.
+    - Combined missingness in `chol` (total cholesterol) increases from 3.3% to 21.9% after converting
+      fake zero values to NaN (specifically 100% missing in Switzerland, 28.0% missing in VA Long Beach).
     To preserve full schema consistency across sites, median/mode imputation is applied,
     but metrics should be interpreted with awareness of these high-missingness attributes.
     """

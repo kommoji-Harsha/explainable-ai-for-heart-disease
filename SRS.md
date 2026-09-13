@@ -51,6 +51,12 @@ This document specifies the software requirements for an academic and clinical r
 - **FR-4.5**: The system shall compute subgroup fairness and performance breakdowns disaggregated by `source_site` in `src/fairness.py`, reporting sample sizes, Accuracy, Recall, and ROC-AUC per site.
 - **FR-4.6**: The system shall provide executable Jupyter notebooks (`notebooks/01b_combined_dataset_baseline.ipynb` and `notebooks/02b_combined_reliability_and_agreement.ipynb`) demonstrating baseline, calibration, fairness, and model agreement pipelines on the combined cohort.
 
+#### 2.6 Zero-as-Missing Data Quality Fix & Fairness Metric Expansion (Added 2026-09-12)
+- **FR-5.1**: The system shall explicitly convert zero values (`0`) in physiologically implausible continuous attributes (`chol`, `trestbps`, `thalach`) to `NaN` specifically for non-Cleveland source datasets (Hungarian, Switzerland, VA Long Beach) in `src/preprocessing.py`, preventing unrecorded cholesterol/blood pressure measurements from contaminating median imputation and scaling statistics.
+- **FR-5.2**: The system shall preserve legitimate zero values in Cleveland (and in legitimate zero-count/categorical fields like `ca` or `oldpeak`) without applying zero-as-missing conversion.
+- **FR-5.3**: The system shall update `results/combined_missingness_report.csv` to reflect the corrected cholesterol missingness (increasing overall cholesterol missingness from 3.26% to 21.96%, specifically 100% missing in Switzerland and 28% in VA Long Beach).
+- **FR-5.4**: The system shall expand per-subgroup and per-site fairness evaluation in `src/fairness.py` to calculate Precision, Specificity (True Negative Rate), and F1-score alongside Accuracy, Recall, and ROC-AUC, providing explicit caveats regarding positive-class prediction bias in high-prevalence cohorts (e.g., Switzerland at 92.7% disease prevalence).
+
 ---
 
 ### 3. Non-Functional Requirements
@@ -62,11 +68,11 @@ This document specifies the software requirements for an academic and clinical r
 ---
 
 ### 4. Data Requirements
-- **Combined 4-Site UCI Heart Disease Dataset** (Updated 2026-09-12):
+- **Combined 4-Site UCI Heart Disease Dataset** (Updated 2026-09-12 with Zero-as-Missing Fix):
   - Sources: UCI Machine Learning Repository (`processed.cleveland.data`, `processed.hungarian.data`, `processed.switzerland.data`, `processed.va.data`).
   - Total Size: 920 rows (Cleveland: 303, Hungarian: 294, Switzerland: 123, VA Long Beach: 200).
   - Attributes: 14 feature columns (`age`, `sex`, `cp`, `trestbps`, `chol`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `slope`, `ca`, `thal`, `target`) + 1 metadata column (`source_site`).
-  - Missingness Limitations: High missingness in `ca` (66.4% overall) and `thal` (52.8% overall).
+  - Missingness Limitations (Corrected): High missingness in `ca` (66.4% overall), `thal` (52.8% overall), and `chol` (21.96% overall after zero-as-missing fix).
   - Binary Target: 0 = no heart disease, 1 = heart disease present (`target > 0`).
 - **Framingham Heart Study Dataset**:
   - Source: Framingham Heart Study public dataset (`framingham.csv`).
@@ -96,4 +102,4 @@ This document specifies the software requirements for an academic and clinical r
 ### 6. Constraints and Assumptions
 - **C-1**: Local storage is assumed for dataset caching (`data/raw_*.csv`).
 - **C-2**: Datasets use binary classification target definitions.
-- **C-3**: Subgroup sample sizes and per-site cohorts vary in size and disease prevalence; fairness and per-site metrics must be interpreted as exploratory.
+- **C-3**: Subgroup sample sizes and per-site cohorts vary in size and disease prevalence; fairness and per-site metrics must be interpreted with Precision and Specificity to guard against prevalence bias.
