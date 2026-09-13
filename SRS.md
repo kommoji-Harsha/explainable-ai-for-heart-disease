@@ -57,6 +57,13 @@ This document specifies the software requirements for an academic and clinical r
 - **FR-5.3**: The system shall update `results/combined_missingness_report.csv` to reflect the corrected cholesterol missingness (increasing overall cholesterol missingness from 3.26% to 21.96%, specifically 100% missing in Switzerland and 28% in VA Long Beach).
 - **FR-5.4**: The system shall expand per-subgroup and per-site fairness evaluation in `src/fairness.py` to calculate Precision, Specificity (True Negative Rate), and F1-score alongside Accuracy, Recall, and ROC-AUC, providing explicit caveats regarding positive-class prediction bias in high-prevalence cohorts (e.g., Switzerland at 92.7% disease prevalence).
 
+#### 2.7 Cross-Dataset External Validation using Combined 4-Site Training Cohort (Added 2026-09-12)
+- **FR-6.1**: The system shall update `src/data_harmonization.py` to accept the combined 920-patient 4-site UCI dataset as training-side input, applying zero-as-missing awareness for continuous variables (`sysBP`, `totChol`) before schema alignment.
+- **FR-6.2**: The system shall update `src/external_validation.py` to train Optuna-tuned classifiers and the soft-voting ensemble on the full harmonized combined 4-site dataset (920 patients) and evaluate them directly on the unseen full Framingham cohort (4,240 patients).
+- **FR-6.3**: The system shall report extended metrics (Precision, Recall, F1, Specificity, ROC-AUC, PR-AUC) and check for degenerate constant-label predictions during external validation.
+- **FR-6.4**: The system shall generate a 3-way comparison table comparing: 1) Cleveland-only nested CV (5 features), 2) Combined 4-site nested CV (5 features), and 3) Framingham External Validation (5 features).
+- **FR-6.5**: The system shall update `notebooks/04_cross_dataset_validation.ipynb` to execute the updated cross-dataset validation pipeline end-to-end and display 3-way comparison tables and confusion matrices.
+
 ---
 
 ### 3. Non-Functional Requirements
@@ -68,7 +75,7 @@ This document specifies the software requirements for an academic and clinical r
 ---
 
 ### 4. Data Requirements
-- **Combined 4-Site UCI Heart Disease Dataset** (Updated 2026-09-12 with Zero-as-Missing Fix):
+- **Combined 4-Site UCI Heart Disease Dataset** (Updated 2026-09-12):
   - Sources: UCI Machine Learning Repository (`processed.cleveland.data`, `processed.hungarian.data`, `processed.switzerland.data`, `processed.va.data`).
   - Total Size: 920 rows (Cleveland: 303, Hungarian: 294, Switzerland: 123, VA Long Beach: 200).
   - Attributes: 14 feature columns (`age`, `sex`, `cp`, `trestbps`, `chol`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `slope`, `ca`, `thal`, `target`) + 1 metadata column (`source_site`).

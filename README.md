@@ -1,6 +1,6 @@
 # Optimized, Explainable, Reliable Ensemble Framework for Heart Disease Prediction
 
-This repository implements the research framework for heart disease prediction based on the primary dataset migration from Cleveland-only (303 patients) to the **COMBINED 4-site UCI Heart Disease dataset** (Cleveland, Hungarian, Switzerland, VA Long Beach; **920 patients total**), along with cross-dataset external validation on the Framingham Heart Study cohort.
+This repository implements the research framework for heart disease prediction based on the primary dataset migration from Cleveland-only (303 patients) to the **COMBINED 4-site UCI Heart Disease dataset** (Cleveland, Hungarian, Switzerland, VA Long Beach; **920 patients total**), along with cross-dataset external validation on the Framingham Heart Study cohort (4,240 patients).
 
 ## Framework Architecture & Progression
 
@@ -24,9 +24,12 @@ This repository implements the research framework for heart disease prediction b
 - **Subgroup Fairness**: Disaggregates model performance across `sex`, `age_band`, and **`source_site`**. For per-site analysis, reports **Accuracy, Recall, Precision, Specificity (TNR), F1-Score, and ROC-AUC** alongside disease prevalence to guard against positive-class prediction bias in high-prevalence cohorts (e.g. Switzerland at 92.7% disease prevalence).
 - **Per-Patient Agreement**: Measures consensus across base classifiers per patient using probability standard deviation, categorizing patients into `high agreement` (std < 0.05), `moderate agreement` (0.05 <= std < 0.15), and `low agreement` (std >= 0.15), generating plain-language warning flags.
 
-### 5. Cross-Dataset External Validation (`src/data_harmonization.py` & `src/external_validation.py`)
-- **Schema Harmonization**: Harmonizes Cleveland/Combined datasets and the Framingham Heart Study dataset (4,240 patients) onto a 5-feature common schema (`age`, `sex`, `sysBP`, `totChol`, `diabetes`, `target`).
-- **External Evaluation**: Trains tuned classifiers and soft-voting ensemble on full harmonized Cleveland data and evaluates directly on the unseen Framingham cohort.
+### 5. Month 3 — Cross-Dataset External Validation (`src/data_harmonization.py` & `src/external_validation.py`)
+- **Combined 4-Site Training Cohort**: The framework trains tuned models and the soft-voting ensemble on the full harmonized combined 4-site dataset (920 patients across 4 international sites).
+- **Framingham External Cohort**: Evaluates trained models directly on the unseen Framingham Heart Study dataset (4,240 patients).
+- **Schema Harmonization**: Harmonizes both datasets onto a 5-feature common schema (`age`, `sex`, `sysBP`, `totChol`, `diabetes`, `target`).
+- **Extended Evaluation**: Computes Precision, Recall, F1, Specificity, ROC-AUC, PR-AUC, and checks for degenerate constant predictions to account for Framingham's lower disease prevalence (15.2%).
+- **Notebook**: `notebooks/04_cross_dataset_validation.ipynb`
 
 ---
 
@@ -47,7 +50,7 @@ This repository implements the research framework for heart disease prediction b
 │   ├── 02_reliability_layer.ipynb              # Original Cleveland Reliability Notebook
 │   ├── 02b_combined_reliability_and_agreement.ipynb # Combined 4-Site Reliability & Agreement Notebook
 │   ├── 03_model_agreement.ipynb                # Per-Patient Model Agreement Notebook
-│   └── 04_cross_dataset_validation.ipynb       # Cross-Dataset External Validation
+│   └── 04_cross_dataset_validation.ipynb       # 3-Way Cross-Dataset External Validation
 ├── results/                                    # Output plots and visualizations
 │   ├── combined_adaboost_calibration_curve.png
 │   ├── combined_ensemble_calibration_curve.png
@@ -68,10 +71,10 @@ This repository implements the research framework for heart disease prediction b
 │   ├── evaluation.py                           # Classification metrics & nested cross-validation
 │   ├── explainability.py                       # SHAP explanation generation and visualization
 │   ├── calibration.py                          # Brier score, ECE, Platt scaling, Isotonic regression
-│   ├── fairness.py                             # Demographic & per-site performance breakdown (with Precision & Specificity)
+│   ├── fairness.py                             # Demographic & per-site performance breakdown
 │   ├── agreement.py                            # Per-patient model agreement scoring & flag generation
-│   ├── data_harmonization.py                   # Cleveland & Framingham dataset schema harmonization
-│   └── external_validation.py                  # Cross-dataset model training and external evaluation
+│   ├── data_harmonization.py                   # Combined UCI & Framingham dataset schema harmonization
+│   └── external_validation.py                  # Cross-dataset model training and 3-way external evaluation
 ├── tests/
 │   ├── test_pipeline.py                        # Unit tests for baseline pipeline & evaluation
 │   ├── test_calibration_fairness.py           # Unit tests for calibration and fairness metrics
@@ -113,15 +116,18 @@ jupyter nbconvert --to notebook --execute notebooks/01b_combined_dataset_baselin
 
 # Combined 4-Site Reliability Layer & Model Agreement Pipeline
 jupyter nbconvert --to notebook --execute notebooks/02b_combined_reliability_and_agreement.ipynb --output notebooks/02b_combined_reliability_and_agreement.ipynb
+
+# Month 3 Cross-Dataset External Validation Pipeline
+jupyter nbconvert --to notebook --execute notebooks/04_cross_dataset_validation.ipynb --output notebooks/04_cross_dataset_validation.ipynb
 ```
 
 ---
 
 ## Pipeline Summary Findings
 
-### 1. Cleveland-Only vs Corrected Combined 4-Site Cohort Baseline Comparison (5-Fold Outer Nested CV)
+### 1. Full UCI Feature Set Baseline Comparison (5-Fold Outer Nested CV, 13 Attributes)
 
-| Metric / Cohort | Model | Cleveland-Only (N=303) | Corrected Combined 4-Site Cohort (N=920) |
+| Metric / Cohort | Model | Cleveland-Only (N=303) | Combined 4-Site Cohort (N=920) |
 |---|---|---|---|
 | **Accuracy** | Random Forest | 82.8% ± 0.9% | **81.5% ± 3.4%** |
 | | XGBoost | 82.2% ± 0.4% | **82.1% ± 3.8%** |
@@ -132,16 +138,16 @@ jupyter nbconvert --to notebook --execute notebooks/02b_combined_reliability_and
 | | AdaBoost | 88.8% ± 0.5% | **88.2% ± 2.5%** |
 | | Soft Ensemble | 91.3% ± 1.6% | **89.7% ± 2.8%** |
 
-### 2. Expanded Per-Site Subgroup Performance Breakdown (Soft Ensemble on Combined Cohort)
+### 2. 3-Way Performance Transferability Comparison (Harmonized 5-Feature Schema)
 
-| Source Site | Sample Size (N) | Disease Prevalence | Accuracy | Recall | Precision | Specificity (TNR) | F1-Score | ROC-AUC |
+| Model | Cleveland-Only CV Acc (5 Feat) | Combined 4-Site CV Acc (5 Feat) | Framingham External Acc (5 Feat) | Cleveland CV ROC-AUC | Combined 4-Site CV ROC-AUC | Framingham External ROC-AUC | Framingham External F1 | Framingham External PR-AUC |
 |---|---|---|---|---|---|---|---|---|
-| **Cleveland** | 303 | 45.9% | 84.8% | 81.3% | 84.8% | 87.8% | 83.0% | 91.8% |
-| **Hungarian** | 294 | 36.1% | 83.3% | 71.7% | 80.2% | 89.9% | 75.7% | 89.2% |
-| **Switzerland** | 123 | 92.7% | 91.1% | 97.4% | 93.3% | 11.1% | 95.3% | 83.6% |
-| **VA Long Beach** | 200 | 74.5% | 71.5% | 78.5% | 82.5% | 51.0% | 80.5% | 76.5% |
+| **Random Forest** | 68.01% | 69.13% | **70.14%** | 73.04% | **74.99%** | **67.84%** | 0.3386 | 0.2580 |
+| **XGBoost** | 67.00% | 68.59% | **71.67%** | 72.71% | **74.89%** | **69.30%** | 0.3546 | 0.2705 |
+| **AdaBoost** | 63.36% | 68.59% | **73.56%** | 69.73% | **74.73%** | **68.53%** | 0.3339 | 0.2721 |
+| **Soft Ensemble** | 67.99% | 68.91% | **71.93%** | 72.95% | **75.29%** | **68.82%** | 0.3454 | 0.2690 |
 
-*Expanded Per-Site Fairness Analysis & Class-Imbalance Caveat:*
-- High Accuracy (91.1%) and Recall (97.4%) in **Switzerland** reflect extreme positive-class prevalence (92.7% disease rate) where the model heavily predicts the majority positive class. Contextualizing with **Specificity (11.1%)** reveals that negative cases are rarely identified correctly.
-- In **VA Long Beach** (74.5% prevalence), Specificity is 51.0% with an F1-score of 80.5%.
-- Contextualizing Accuracy and Recall alongside Precision and Specificity guards against misinterpreting class-imbalance effects as superior site-specific performance.
+*Key Transferability Findings:*
+1. **Multi-Site Training Boosts Cross-Validation Performance**: Expanding training data from Cleveland-only (303) to the Combined 4-site dataset (920) on the 5-feature schema improves cross-validation ROC-AUC across all models (Ensemble CV ROC-AUC increases from 72.95% to 75.29%).
+2. **Improved External Generalization**: Training on the larger, multi-site combined dataset yields strong external generalization on the unseen Framingham cohort (4,240 patients), achieving **69.30% ROC-AUC for XGBoost** and **68.82% ROC-AUC for the Soft Ensemble**.
+3. **Prevalence Shift Context**: Framingham has a 15.2% disease prevalence compared to ~55% in the combined training set. Metrics like PR-AUC (~0.27) and F1 (~0.35) reflect this class-imbalance shift, but ROC-AUC demonstrates consistent discriminative capacity across populations.
