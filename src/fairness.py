@@ -4,9 +4,9 @@ from sklearn.metrics import accuracy_score, recall_score, roc_auc_score
 
 
 CAVEAT_MESSAGE = (
-    "NOTE / CAVEAT: Subgroup sample sizes in healthcare datasets (such as Cleveland) "
-    "are small (e.g. N < 100 per subgroup). Performance breakdowns across subgroups "
-    "should be interpreted as indicative/exploratory rather than statistically conclusive."
+    "NOTE / CAVEAT: Subgroup sample sizes in healthcare datasets (e.g. per-site or female cohorts) "
+    "can be small or imbalanced (e.g. Switzerland N=123, VA N=200). Performance breakdowns across "
+    "subgroups should be interpreted as indicative/exploratory rather than statistically conclusive."
 )
 
 
@@ -32,7 +32,7 @@ def evaluate_subgroup_performance(df: pd.DataFrame, y_true: np.ndarray, y_pred: 
         y_true: True binary targets.
         y_pred: Binary predictions.
         y_prob: Predicted positive class probabilities.
-        group_col: Column name in df to group by (e.g. 'sex', 'age_band').
+        group_col: Column name in df to group by (e.g. 'sex', 'age_band', 'source_site').
 
     Returns:
         DataFrame with subgroup metrics and sample sizes.
@@ -75,20 +75,20 @@ def evaluate_subgroup_performance(df: pd.DataFrame, y_true: np.ndarray, y_pred: 
 
 def compute_fairness_breakdown(df: pd.DataFrame, y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray, target_col: str = "target") -> dict:
     """
-    Computes subgroup fairness breakdown across sex and age bands.
+    Computes subgroup fairness breakdown across sex, age bands, and source_site (if present).
 
     Caveat Notice:
-        Subgroup sample sizes are small and results should be read as indicative,
-        not statistically conclusive.
+        Subgroup sample sizes and per-site cohorts vary in size; results should be read as
+        indicative, not statistically conclusive.
 
     Args:
-        df: Original DataFrame (containing 'sex' and 'age').
+        df: Original DataFrame (containing 'sex', 'age', and optionally 'source_site').
         y_true: True targets.
         y_pred: Predicted labels.
         y_prob: Predicted probabilities.
 
     Returns:
-        dict containing DataFrames for sex and age_band performance breakdowns,
+        dict containing DataFrames for sex, age_band, and site_breakdown performance breakdowns,
         along with the caveat message.
     """
     df_meta = df.copy()
@@ -105,8 +105,14 @@ def compute_fairness_breakdown(df: pd.DataFrame, y_true: np.ndarray, y_pred: np.
     sex_breakdown = evaluate_subgroup_performance(df_meta, y_true, y_pred, y_prob, group_col="sex_label")
     age_breakdown = evaluate_subgroup_performance(df_meta, y_true, y_pred, y_prob, group_col="age_band")
 
-    return {
+    res = {
         "sex_breakdown": sex_breakdown,
         "age_breakdown": age_breakdown,
         "caveat": CAVEAT_MESSAGE
     }
+
+    if "source_site" in df_meta.columns:
+        site_breakdown = evaluate_subgroup_performance(df_meta, y_true, y_pred, y_prob, group_col="source_site")
+        res["site_breakdown"] = site_breakdown
+
+    return res

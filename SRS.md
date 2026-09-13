@@ -43,6 +43,14 @@ This document specifies the software requirements for an academic and clinical r
 - **FR-3.5**: The system shall report and compare external validation metrics (Accuracy, Precision, Recall, F1, ROC-AUC, Confusion Matrix) against Cleveland-only nested CV baseline results to quantify cross-dataset performance transferability.
 - **FR-3.6**: The system shall provide an executable Jupyter notebook (`notebooks/04_cross_dataset_validation.ipynb`) running cross-dataset harmonization and external validation end-to-end.
 
+#### 2.5 Dataset Migration to Combined 4-Site Cohort (Added 2026-09-12)
+- **FR-4.1**: The system shall load and concatenate all four UCI Heart Disease source datasets: Cleveland (N=303), Hungarian (N=294), Switzerland (N=123), and VA Long Beach (N=200), expanding the primary cohort to 920 patients total.
+- **FR-4.2**: The system shall add and track a metadata column `source_site` (`cleveland`, `hungarian`, `switzerland`, `va_long_beach`) while ensuring `source_site` is excluded from model feature matrices.
+- **FR-4.3**: The system shall generate and document a missingness percentage report table per feature column per site, saved to `results/combined_missingness_report.csv`.
+- **FR-4.4**: The system shall document data quality limitations associated with high missingness in `ca` (66.4% combined) and `thal` (52.8% combined) across the 4 sites while maintaining full schema consistency via median/mode imputation.
+- **FR-4.5**: The system shall compute subgroup fairness and performance breakdowns disaggregated by `source_site` in `src/fairness.py`, reporting sample sizes, Accuracy, Recall, and ROC-AUC per site.
+- **FR-4.6**: The system shall provide executable Jupyter notebooks (`notebooks/01b_combined_dataset_baseline.ipynb` and `notebooks/02b_combined_reliability_and_agreement.ipynb`) demonstrating baseline, calibration, fairness, and model agreement pipelines on the combined cohort.
+
 ---
 
 ### 3. Non-Functional Requirements
@@ -54,15 +62,16 @@ This document specifies the software requirements for an academic and clinical r
 ---
 
 ### 4. Data Requirements
-- **UCI Cleveland Dataset**:
-  - Source: UCI Machine Learning Repository (`processed.cleveland.data`).
-  - Size: 303 rows, 14 raw attributes (`age`, `sex`, `cp`, `trestbps`, `chol`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `slope`, `ca`, `thal`, `target`).
-  - Binary target: 0 = no heart disease, 1 = heart disease present (`target > 0`).
-- **Framingham Heart Study Dataset** (Added 2026-09-12):
+- **Combined 4-Site UCI Heart Disease Dataset** (Updated 2026-09-12):
+  - Sources: UCI Machine Learning Repository (`processed.cleveland.data`, `processed.hungarian.data`, `processed.switzerland.data`, `processed.va.data`).
+  - Total Size: 920 rows (Cleveland: 303, Hungarian: 294, Switzerland: 123, VA Long Beach: 200).
+  - Attributes: 14 feature columns (`age`, `sex`, `cp`, `trestbps`, `chol`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `slope`, `ca`, `thal`, `target`) + 1 metadata column (`source_site`).
+  - Missingness Limitations: High missingness in `ca` (66.4% overall) and `thal` (52.8% overall).
+  - Binary Target: 0 = no heart disease, 1 = heart disease present (`target > 0`).
+- **Framingham Heart Study Dataset**:
   - Source: Framingham Heart Study public dataset (`framingham.csv`).
-  - Size: 4,240 rows, 16 raw attributes (`male`, `age`, `education`, `currentSmoker`, `cigsPerDay`, `BPMeds`, `prevalentStroke`, `prevalentHyp`, `diabetes`, `totChol`, `sysBP`, `diaBP`, `BMI`, `heartRate`, `glucose`, `TenYearCHD`).
-  - Binary target: `TenYearCHD` (0 = no 10-year coronary heart disease, 1 = 10-year CHD present).
-- **Harmonized Dataset Schema** (Added 2026-09-12):
+  - Size: 4,240 rows, 16 raw attributes.
+- **Harmonized Dataset Schema**:
   - Features: `age` (years), `sex` (0=Female, 1=Male), `sysBP` (mmHg), `totChol` (mg/dL), `diabetes` (0/1 binary).
   - Target: `target` (0/1 binary).
 
@@ -85,6 +94,6 @@ This document specifies the software requirements for an academic and clinical r
 ---
 
 ### 6. Constraints and Assumptions
-- **C-1**: Local storage is assumed for dataset caching (`data/raw_cleveland.csv` and `data/raw_framingham.csv`).
+- **C-1**: Local storage is assumed for dataset caching (`data/raw_*.csv`).
 - **C-2**: Datasets use binary classification target definitions.
-- **C-3**: Subgroup sample sizes in Cleveland (N=303) are small; fairness metrics must be interpreted as exploratory.
+- **C-3**: Subgroup sample sizes and per-site cohorts vary in size and disease prevalence; fairness and per-site metrics must be interpreted as exploratory.

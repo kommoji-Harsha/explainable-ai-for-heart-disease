@@ -35,7 +35,7 @@ def sample_raw_data():
 
 
 def test_load_data_and_target_binarization(tmp_path):
-    csv_file = tmp_path / "test_data.csv"
+    csv_file = tmp_path / "test_cleveland.csv"
     data = {
         "age": [63.0, 67.0, 37.0],
         "sex": [1.0, 1.0, 1.0],
