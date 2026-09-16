@@ -2,7 +2,7 @@
 ## Optimized, Explainable, Reliable Ensemble Framework for Heart Disease Prediction
 
 ### 1. Purpose and Scope
-This document specifies the software requirements for an academic and clinical research machine learning framework designed for heart disease prediction. The framework integrates ensemble learning (Random Forest, XGBoost, AdaBoost), Bayesian hyperparameter optimization (Optuna), nested cross-validation, model probability calibration, subgroup fairness evaluation, per-patient uncertainty/disagreement flagging, and cross-dataset external validation.
+This document specifies the software requirements for an academic and clinical research machine learning framework designed for heart disease prediction. The framework integrates ensemble learning (Random Forest, XGBoost, AdaBoost), Bayesian hyperparameter optimization (Optuna), nested cross-validation, model probability calibration, subgroup fairness evaluation, per-patient uncertainty/disagreement flagging, cross-dataset external validation, and explanation depth methods (LIME comparison, counterfactual reasoning, and explanation stability).
 
 ---
 
@@ -64,11 +64,19 @@ This document specifies the software requirements for an academic and clinical r
 - **FR-6.4**: The system shall generate a 3-way comparison table comparing: 1) Cleveland-only nested CV (5 features), 2) Combined 4-site nested CV (5 features), and 3) Framingham External Validation (5 features).
 - **FR-6.5**: The system shall update `notebooks/04_cross_dataset_validation.ipynb` to execute the updated cross-dataset validation pipeline end-to-end and display 3-way comparison tables and confusion matrices.
 
+#### 2.8 Explanation Depth: LIME Comparison, Counterfactuals & Explanation Stability (Added 2026-09-12)
+- **FR-7.1**: The system shall generate LIME local explanations (`src/lime_explainability.py`) using `LimeTabularExplainer` for specified sample patient predictions.
+- **FR-7.2**: The system shall perform side-by-side comparisons between top-K SHAP features and top-K LIME features per patient, computing Overlap@K agreement ratios and saving comparison reports to `results/shap_vs_lime_comparison.csv`.
+- **FR-7.3**: The system shall generate counterfactual what-if scenarios (`src/counterfactuals.py`) for high-risk patients by identifying minimal realistic modifications in actionable features (`chol`, `trestbps`, `thalach`, `oldpeak`) that flip predicted probabilities below decision threshold (0.50).
+- **FR-7.4**: The system shall label all counterfactual statements explicitly as model-based what-if scenarios rather than medical advice, embedding non-medical-advice disclaimers in outputs and code comments.
+- **FR-7.5**: The system shall evaluate SHAP explanation stability across outer cross-validation folds (`src/explanation_stability.py`), measuring Overlap@5 and Kendall's tau correlation across fold feature importance rankings.
+- **FR-7.6**: The system shall provide an executable Jupyter notebook (`notebooks/05_explanation_depth.ipynb`) demonstrating LIME comparisons, counterfactual what-if scenarios, and SHAP explanation stability end-to-end.
+
 ---
 
 ### 3. Non-Functional Requirements
 - **NFR-1 (Performance & Runtime)**: The pipeline execution shall run efficiently within standard free-tier CPU compute environments (e.g. Kaggle / Colab) in under 3 minutes.
-- **NFR-2 (No-Cost Constraint)**: The system shall rely exclusively on open-source Python libraries (`scikit-learn`, `xgboost`, `optuna`, `shap`, `pandas`, `numpy`, `matplotlib`, `seaborn`, `pytest`) without requiring paid APIs or commercial services.
+- **NFR-2 (No-Cost Constraint)**: The system shall rely exclusively on open-source Python libraries (`scikit-learn`, `xgboost`, `optuna`, `shap`, `lime`, `pandas`, `numpy`, `matplotlib`, `seaborn`, `pytest`) without requiring paid APIs or commercial services.
 - **NFR-3 (Reproducibility)**: The system shall enforce reproducible stochastic behavior by configuring fixed random seeds (`random_state=42`) across data splits, model initializations, and Optuna samplers.
 - **NFR-4 (Modularity & Maintainability)**: Code shall be organized into modular, decoupled Python scripts under `src/`, with unit tests maintained under `tests/`.
 
@@ -98,6 +106,7 @@ This document specifies the software requirements for an academic and clinical r
   - `xgboost==3.4.1`
   - `optuna==5.0.0`
   - `shap==0.52.0`
+  - `lime==0.2.0.1`
   - `matplotlib==3.11.2`
   - `seaborn==0.13.2`
   - `pyyaml==6.0.3`
@@ -110,3 +119,4 @@ This document specifies the software requirements for an academic and clinical r
 - **C-1**: Local storage is assumed for dataset caching (`data/raw_*.csv`).
 - **C-2**: Datasets use binary classification target definitions.
 - **C-3**: Subgroup sample sizes and per-site cohorts vary in size and disease prevalence; fairness and per-site metrics must be interpreted with Precision and Specificity to guard against prevalence bias.
+- **C-4**: Counterfactual explanations represent model-based sensitivity what-if scenarios and do not constitute medical advice.
