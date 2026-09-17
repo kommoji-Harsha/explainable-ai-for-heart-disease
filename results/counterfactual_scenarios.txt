@@ -1,0 +1,19 @@
+DISCLAIMER: These counterfactual statements are purely model-based 'what-if' sensitivity analyses computed for explainability purposes. They represent mathematical feature perturbations and do NOT constitute medical advice or clinical guidance.
+
+================================================================================
+
+PATIENT INDEX: 6
+Model-based what-if scenario: If this patient's thalach were modified from 160.0 to 185.0 and oldpeak were modified from 3.6 to 1.0, with other factors unchanged, the model's predicted risk would drop from 79.0% to 49.9% (below the 50% threshold).
+--------------------------------------------------------------------------------
+
+PATIENT INDEX: 9
+Model-based what-if scenario: If this patient's thalach were modified from 155.0 to 170.7 and oldpeak were modified from 3.1 to 0.4, with other factors unchanged, the model's predicted risk would drop from 80.3% to 50.0% (below the 50% threshold).
+--------------------------------------------------------------------------------
+
+PATIENT INDEX: 12
+No simple counterfactual modification in ['chol', 'trestbps', 'thalach', 'oldpeak'] was sufficient to flip prediction below 50%.
+--------------------------------------------------------------------------------
+
+PATIENT INDEX: 16
+Model-based what-if scenario: If this patient's chol were modified from 229.0 to 226.4, with other factors unchanged, the model's predicted risk would drop from 51.6% to 43.4% (below the 50% threshold).
+--------------------------------------------------------------------------------
