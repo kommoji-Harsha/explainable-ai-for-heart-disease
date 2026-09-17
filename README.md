@@ -1,6 +1,30 @@
 # Optimized, Explainable, Reliable Ensemble Framework for Heart Disease Prediction
 
-This repository implements the research framework for heart disease prediction based on the primary dataset migration from Cleveland-only (303 patients) to the **COMBINED 4-site UCI Heart Disease dataset** (Cleveland, Hungarian, Switzerland, VA Long Beach; **920 patients total**), along with cross-dataset external validation on the Framingham Heart Study cohort (4,240 patients) and explanation depth modules (LIME, counterfactuals, explanation stability).
+This repository implements the research framework for heart disease prediction based on the primary dataset migration from Cleveland-only (303 patients) to the **COMBINED 4-site UCI Heart Disease dataset** (Cleveland, Hungarian, Switzerland, VA Long Beach; **920 patients total**), along with cross-dataset external validation on the Framingham Heart Study cohort (4,240 patients), explanation depth modules (LIME, counterfactuals, explanation stability), and final model artifact deployment.
+
+## Quick Demo
+
+You can train the final model on the full 920-patient dataset and run live predictions in just two commands:
+
+```bash
+# 1. Fit preprocessor, base models, and ensemble on full dataset and save to models/
+PYTHONPATH=. python3 src/train_final_model.py
+
+# 2. Run single-patient risk assessment CLI
+PYTHONPATH=. python3 src/predict.py --age 60 --sex 1 --cp 4 --trestbps 140 --chol 260 --thalach 130 --exang 1 --oldpeak 2.0
+```
+
+To see raw JSON output:
+```bash
+PYTHONPATH=. python3 src/predict.py --json
+```
+
+To run the interactive presentation notebook:
+```bash
+jupyter nbconvert --to notebook --execute notebooks/06_live_demo.ipynb --output 06_live_demo.ipynb
+```
+
+---
 
 ## Framework Architecture & Progression
 
@@ -37,66 +61,83 @@ This repository implements the research framework for heart disease prediction b
 - **Extended Evaluation**: Computes Precision, Recall, F1, Specificity, ROC-AUC, PR-AUC, and checks for degenerate constant predictions to account for Framingham's lower disease prevalence (15.2%).
 - **Notebook**: `notebooks/04_cross_dataset_validation.ipynb`
 
+### 7. Final Model Training & Inference Pipeline (`src/train_final_model.py` & `src/predict.py`)
+- **Final Full Training**: Fits preprocessor and Optuna-tuned base models + soft ensemble on the full 920-patient cohort.
+- **Persisted Artifacts**: Saves `preprocessor.joblib`, `random_forest.joblib`, `xgboost.joblib`, `adaboost.joblib`, `ensemble.joblib`, and `metadata.json` to `models/`.
+- **Inference & CLI**: `src/predict.py` takes raw feature inputs and outputs probability, risk label, model agreement flag, top SHAP features, and explicit disclaimer: *"This is a machine learning estimate, not a medical diagnosis."*
+- **Presentation Notebook**: `notebooks/06_live_demo.ipynb`
+
 ---
 
 ## Directory Structure
-```
+
 .
-├── config.yaml                                 # Global project and hyperparameter configuration
-├── SRS.md                                      # Living Software Requirements Specification
+├── config.yaml # Global project and hyperparameter configuration
+├── SRS.md # Living Software Requirements Specification
 ├── data/
-│   ├── raw_cleveland.csv                       # UCI Cleveland dataset (N=303)
-│   ├── raw_hungarian.csv                       # UCI Hungarian dataset (N=294)
-│   ├── raw_switzerland.csv                     # UCI Switzerland dataset (N=123)
-│   ├── raw_va_long_beach.csv                   # UCI VA Long Beach dataset (N=200)
-│   └── raw_framingham.csv                      # Framingham Heart Study dataset (N=4,240)
+│ ├── raw_cleveland.csv # UCI Cleveland dataset (N=303)
+│ ├── raw_hungarian.csv # UCI Hungarian dataset (N=294)
+│ ├── raw_switzerland.csv # UCI Switzerland dataset (N=123)
+│ ├── raw_va_long_beach.csv # UCI VA Long Beach dataset (N=200)
+│ └── raw_framingham.csv # Framingham Heart Study dataset (N=4,240)
+├── models/ # Saved model artifacts and metadata
+│ ├── adaboost.joblib
+│ ├── ensemble.joblib
+│ ├── metadata.json
+│ ├── preprocessor.joblib
+│ ├── random_forest.joblib
+│ └── xgboost.joblib
 ├── notebooks/
-│   ├── 01_baseline_pipeline.ipynb              # Original Cleveland-only Baseline Notebook
-│   ├── 01b_combined_dataset_baseline.ipynb     # Combined 4-Site Baseline Notebook (N=920)
-│   ├── 02_reliability_layer.ipynb              # Original Cleveland Reliability Notebook
-│   ├── 02b_combined_reliability_and_agreement.ipynb # Combined 4-Site Reliability & Agreement Notebook
-│   ├── 03_model_agreement.ipynb                # Per-Patient Model Agreement Notebook
-│   ├── 04_cross_dataset_validation.ipynb       # 3-Way Cross-Dataset External Validation
-│   └── 05_explanation_depth.ipynb              # Explanation Depth (LIME, Counterfactuals, Stability)
-├── results/                                    # Output plots and visualizations
-│   ├── combined_adaboost_calibration_curve.png
-│   ├── combined_ensemble_calibration_curve.png
-│   ├── combined_missingness_report.csv         # Documented missingness % across 4 sites
-│   ├── combined_model_agreement_distribution.png
-│   ├── combined_nested_cv_confusion_matrices.png
-│   ├── combined_random_forest_calibration_curve.png
-│   ├── combined_xgboost_calibration_curve.png
-│   ├── combined_xgboost_shap_bar.png
-│   ├── combined_xgboost_shap_summary.png
-│   ├── counterfactual_scenarios.txt            # Counterfactual what-if statements with disclaimers
-│   ├── framingham_external_confusion_matrices.png
-│   ├── nested_cv_confusion_matrices.png
-│   └── shap_vs_lime_comparison.csv             # Top feature comparison & Overlap@5 ratios
+│ ├── 01_baseline_pipeline.ipynb # Original Cleveland-only Baseline Notebook
+│ ├── 01b_combined_dataset_baseline.ipynb # Combined 4-Site Baseline Notebook (N=920)
+│ ├── 02_reliability_layer.ipynb # Original Cleveland Reliability Notebook
+│ ├── 02b_combined_reliability_and_agreement.ipynb # Combined 4-Site Reliability & Agreement Notebook
+│ ├── 03_model_agreement.ipynb # Per-Patient Model Agreement Notebook
+│ ├── 04_cross_dataset_validation.ipynb # 3-Way Cross-Dataset External Validation
+│ ├── 05_explanation_depth.ipynb # Explanation Depth (LIME, Counterfactuals, Stability)
+│ └── 06_live_demo.ipynb # Presentation-ready Live Demonstration Notebook
+├── results/ # Output plots and visualizations
+│ ├── combined_adaboost_calibration_curve.png
+│ ├── combined_ensemble_calibration_curve.png
+│ ├── combined_missingness_report.csv # Documented missingness % across 4 sites
+│ ├── combined_model_agreement_distribution.png
+│ ├── combined_nested_cv_confusion_matrices.png
+│ ├── combined_random_forest_calibration_curve.png
+│ ├── combined_xgboost_calibration_curve.png
+│ ├── combined_xgboost_shap_bar.png
+│ ├── combined_xgboost_shap_summary.png
+│ ├── counterfactual_scenarios.txt # Counterfactual what-if statements with disclaimers
+│ ├── framingham_external_confusion_matrices.png
+│ ├── nested_cv_confusion_matrices.png
+│ └── shap_vs_lime_comparison.csv # Top feature comparison & Overlap@5 ratios
 ├── src/
-│   ├── preprocessing.py                        # Multi-source data loading, concatenation, 0-as-missing fix, scaling
-│   ├── models.py                               # Baseline model instantiators (RF, XGBoost, AdaBoost)
-│   ├── optimization.py                         # Optuna Bayesian hyperparameter optimization
-│   ├── ensemble.py                             # Soft-voting ensemble implementation
-│   ├── evaluation.py                           # Classification metrics & nested cross-validation
-│   ├── explainability.py                       # SHAP explanation generation and visualization
-│   ├── calibration.py                          # Brier score, ECE, Platt scaling, Isotonic regression
-│   ├── fairness.py                             # Demographic & per-site performance breakdown
-│   ├── agreement.py                            # Per-patient model agreement scoring & flag generation
-│   ├── lime_explainability.py                  # LIME tabular explainer & SHAP vs LIME comparison
-│   ├── counterfactuals.py                      # Counterfactual search & what-if scenario statements
-│   ├── explanation_stability.py                # SHAP ranking stability across CV folds (Overlap@K & Kendall's tau)
-│   ├── data_harmonization.py                   # Combined UCI & Framingham dataset schema harmonization
-│   └── external_validation.py                  # Cross-dataset model training and 3-way external evaluation
+│ ├── preprocessing.py # Multi-source data loading, concatenation, 0-as-missing fix, scaling
+│ ├── models.py # Baseline model instantiators (RF, XGBoost, AdaBoost)
+│ ├── optimization.py # Optuna Bayesian hyperparameter optimization
+│ ├── ensemble.py # Soft-voting ensemble implementation
+│ ├── evaluation.py # Classification metrics & nested cross-validation
+│ ├── explainability.py # SHAP explanation generation and visualization
+│ ├── calibration.py # Brier score, ECE, Platt scaling, Isotonic regression
+│ ├── fairness.py # Demographic & per-site performance breakdown
+│ ├── agreement.py # Per-patient model agreement scoring & flag generation
+│ ├── lime_explainability.py # LIME tabular explainer & SHAP vs LIME comparison
+│ ├── counterfactuals.py # Counterfactual search & what-if scenario statements
+│ ├── explanation_stability.py # SHAP ranking stability across CV folds (Overlap@K & Kendall's tau)
+│ ├── data_harmonization.py # Combined UCI & Framingham dataset schema harmonization
+│ ├── external_validation.py # Cross-dataset model training and 3-way external evaluation
+│ ├── train_final_model.py # Trains final preprocessor & models on full dataset
+│ └── predict.py # Patient prediction CLI, risk labeling, & SHAP explanations
 ├── tests/
-│   ├── test_pipeline.py                        # Unit tests for baseline pipeline & evaluation
-│   ├── test_calibration_fairness.py           # Unit tests for calibration and fairness metrics
-│   ├── test_agreement.py                      # Unit tests for model agreement scoring & flags
-│   ├── test_combined_dataset.py               # Unit tests for 4-site multi-source loading & zero-as-missing fix
-│   ├── test_explanation_depth.py               # Unit tests for Overlap@K, Kendall's tau, and counterfactuals
-│   └── test_data_harmonization.py             # Unit tests for dataset harmonization & external validation
-├── requirements.txt                            # Pinned dependency requirements
+│ ├── test_pipeline.py # Unit tests for baseline pipeline & evaluation
+│ ├── test_calibration_fairness.py # Unit tests for calibration and fairness metrics
+│ ├── test_agreement.py # Unit tests for model agreement scoring & flags
+│ ├── test_combined_dataset.py # Unit tests for 4-site multi-source loading & zero-as-missing fix
+│ ├── test_explanation_depth.py # Unit tests for Overlap@K, Kendall's tau, and counterfactuals
+│ ├── test_data_harmonization.py # Unit tests for dataset harmonization & external validation
+│ └── test_predict.py # Unit tests for final model loading and prediction format
+├── requirements.txt # Pinned dependency requirements
 └── README.md
-```
+
 
 ---
 
@@ -135,6 +176,9 @@ jupyter nbconvert --to notebook --execute notebooks/05_explanation_depth.ipynb -
 
 # Month 3 Cross-Dataset External Validation Pipeline
 jupyter nbconvert --to notebook --execute notebooks/04_cross_dataset_validation.ipynb --output notebooks/04_cross_dataset_validation.ipynb
+
+# Live Presentation Demo
+jupyter nbconvert --to notebook --execute notebooks/06_live_demo.ipynb --output notebooks/06_live_demo.ipynb
 ```
 
 ---
