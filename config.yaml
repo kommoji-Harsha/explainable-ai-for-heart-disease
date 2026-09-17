@@ -1,0 +1,51 @@
+# Dataset Configuration
+dataset:
+  url: "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data"
+  raw_path: "data/raw_cleveland.csv"
+  processed_path: "data/processed_cleveland.csv"
+  column_names:
+    - "age"
+    - "sex"
+    - "cp"
+    - "trestbps"
+    - "chol"
+    - "fbs"
+    - "restecg"
+    - "thalach"
+    - "exang"
+    - "oldpeak"
+    - "slope"
+    - "ca"
+    - "thal"
+    - "target"
+
+# Feature Categorization
+features:
+  numeric:
+    - "age"
+    - "trestbps"
+    - "chol"
+    - "thalach"
+    - "oldpeak"
+    - "ca"
+  categorical:
+    - "sex"
+    - "cp"
+    - "fbs"
+    - "restecg"
+    - "exang"
+    - "slope"
+    - "thal"
+  target: "target"
+
+# Global Random State
+random_state: 42
+
+# Optimization / Cross-Validation Parameters
+cv:
+  outer_folds: 5
+  inner_folds: 3
+  optuna_n_trials: 20
+
+# Output Paths
+results_dir: "results"
