@@ -2,9 +2,26 @@
 
 This repository implements the research framework for heart disease prediction based on the primary dataset migration from Cleveland-only (303 patients) to the **COMBINED 4-site UCI Heart Disease dataset** (Cleveland, Hungarian, Switzerland, VA Long Beach; **920 patients total**), along with cross-dataset external validation on the Framingham Heart Study cohort (4,240 patients), explanation depth modules (LIME, counterfactuals, explanation stability), and final model artifact deployment.
 
-## Quick Demo
+## Web App Demo
 
-You can train the final model on the full 920-patient dataset and run live predictions in just two commands:
+You can run the interactive SaaS-styled clinical decision support web application locally or deploy it to Streamlit Community Cloud:
+
+```bash
+# Run the Streamlit web app locally
+streamlit run app.py
+```
+
+### Deploying to Streamlit Community Cloud:
+1. Fork or push this repository to GitHub.
+2. Sign in to [Streamlit Community Cloud](https://share.streamlit.io/).
+3. Click **"New app"**, select your repository, set the main file path to `app.py`, and click **"Deploy"**.
+4. The cloud platform will automatically install dependencies from `requirements.txt` and launch the app with a public shareable URL.
+
+---
+
+## Quick CLI & Script Demo
+
+You can train the final model on the full 920-patient dataset and run live CLI predictions:
 
 ```bash
 # 1. Fit preprocessor, base models, and ensemble on full dataset and save to models/
@@ -60,10 +77,11 @@ jupyter nbconvert --to notebook --execute notebooks/06_live_demo.ipynb --output 
 - **Schema Harmonization**: Harmonizes both datasets onto a 5-feature common schema (`age`, `sex`, `sysBP`, `totChol`, `diabetes`, `target`).
 - **Notebook**: `notebooks/04_cross_dataset_validation.ipynb`
 
-### 7. Final Model Training & Inference Pipeline (`src/train_final_model.py` & `src/predict.py`)
+### 7. Final Model Training, Web App & Inference Pipeline (`app.py`, `src/train_final_model.py` & `src/predict.py`)
 - **Final Full Training**: Fits preprocessor and Optuna-tuned base models + soft ensemble on the full 920-patient cohort.
 - **Persisted Artifacts**: Saves `preprocessor.joblib`, `random_forest.joblib`, `xgboost.joblib`, `adaboost.joblib`, `ensemble.joblib`, and `metadata.json` to `models/`.
 - **Inference & CLI**: `src/predict.py` takes raw feature inputs and outputs probability, risk label, model agreement flag, top SHAP features, and explicit disclaimer: *"This is a machine learning estimate, not a medical diagnosis."*
+- **SaaS Clinical Web Interface**: `app.py` delivers a health-tech SaaS web interface with custom CSS styling, multi-column input form, circular probability gauge, model agreement probability breakdown, Plotly SHAP chart, about page, and startup auto-training state.
 - **Presentation Notebook**: `notebooks/06_live_demo.ipynb`
 
 ---
@@ -71,6 +89,9 @@ jupyter nbconvert --to notebook --execute notebooks/06_live_demo.ipynb --output 
 ## Directory Structure
 ```
 .
+├── .streamlit/
+│   └── config.toml                             # Streamlit theme configuration
+├── app.py                                      # SaaS Health-Tech Streamlit Web Application
 ├── config.yaml                                 # Global project and hyperparameter configuration
 ├── SRS.md                                      # Living Software Requirements Specification
 ├── data/
@@ -120,7 +141,8 @@ jupyter nbconvert --to notebook --execute notebooks/06_live_demo.ipynb --output 
 │   ├── test_combined_dataset.py               # Unit tests for 4-site multi-source loading & zero-as-missing fix
 │   ├── test_explanation_depth.py               # Unit tests for Overlap@K, Kendall's tau, and counterfactuals
 │   ├── test_data_harmonization.py             # Unit tests for dataset harmonization & external validation
-│   └── test_predict.py                         # Unit tests for final model loading and prediction format
+│   ├── test_predict.py                         # Unit tests for final model loading and prediction format
+│   └── test_app.py                             # Unit test for Streamlit app prediction wrapper
 ├── requirements.txt                            # Pinned dependency requirements
 └── README.md
 ```
