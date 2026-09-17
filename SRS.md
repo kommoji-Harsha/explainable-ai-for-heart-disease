@@ -2,7 +2,7 @@
 ## Optimized, Explainable, Reliable Ensemble Framework for Heart Disease Prediction
 
 ### 1. Purpose and Scope
-This document specifies the software requirements for an academic and clinical research machine learning framework designed for heart disease prediction. The framework integrates ensemble learning (Random Forest, XGBoost, AdaBoost), Bayesian hyperparameter optimization (Optuna), nested cross-validation, model probability calibration, subgroup fairness evaluation, per-patient uncertainty/disagreement flagging, cross-dataset external validation, and explanation depth methods (LIME comparison, counterfactual reasoning, and explanation stability).
+This document specifies the software requirements for an academic and clinical research machine learning framework designed for heart disease prediction. The framework integrates ensemble learning (Random Forest, XGBoost, AdaBoost), Bayesian hyperparameter optimization (Optuna), nested cross-validation, model probability calibration, subgroup fairness evaluation, per-patient uncertainty/disagreement flagging, cross-dataset external validation, explanation depth methods (LIME comparison, counterfactual reasoning, and explanation stability), and final model deployment and inference pipelines.
 
 ---
 
@@ -72,11 +72,19 @@ This document specifies the software requirements for an academic and clinical r
 - **FR-7.5**: The system shall evaluate SHAP explanation stability across outer cross-validation folds (`src/explanation_stability.py`), measuring Overlap@5 and Kendall's tau correlation across fold feature importance rankings.
 - **FR-7.6**: The system shall provide an executable Jupyter notebook (`notebooks/05_explanation_depth.ipynb`) demonstrating LIME comparisons, counterfactual what-if scenarios, and SHAP explanation stability end-to-end.
 
+#### 2.9 Final Model Deployment & Inference Pipeline (Added 2026-09-17)
+- **FR-8.1**: The system shall implement `src/train_final_model.py` to fit the preprocessing pipeline and base classifiers (Random Forest, XGBoost, AdaBoost) on the full combined 920-patient UCI dataset using Optuna-found best hyperparameters.
+- **FR-8.2**: The system shall construct the final soft-voting ensemble from the fully-fitted base models and save all four models plus preprocessor into a `models/` directory using `joblib`.
+- **FR-8.3**: The system shall write a structured metadata file (`models/metadata.json`) capturing training date, dataset size, raw/processed feature schemas, hyperparameters used, and validation ROC-AUC scores.
+- **FR-8.4**: The system shall implement `src/predict.py` providing a function and CLI to ingest single-patient feature values, preprocess inputs, and compute: ensemble predicted probability, risk level label (`Low Risk`, `Moderate Risk`, `High Risk`), model agreement flag (reusing `src/agreement.py`), and SHAP feature importance impact explanations (reusing `src/explainability.py`).
+- **FR-8.5**: All prediction outputs shall append an explicit non-medical disclaimer line: *"This is a machine learning estimate, not a medical diagnosis."*
+- **FR-8.6**: The system shall provide an executable, presentation-ready Jupyter notebook (`notebooks/06_live_demo.ipynb`) that loads saved models and demonstrates inference across multiple realistic patient risk profiles.
+
 ---
 
 ### 3. Non-Functional Requirements
 - **NFR-1 (Performance & Runtime)**: The pipeline execution shall run efficiently within standard free-tier CPU compute environments (e.g. Kaggle / Colab) in under 3 minutes.
-- **NFR-2 (No-Cost Constraint)**: The system shall rely exclusively on open-source Python libraries (`scikit-learn`, `xgboost`, `optuna`, `shap`, `lime`, `pandas`, `numpy`, `matplotlib`, `seaborn`, `pytest`) without requiring paid APIs or commercial services.
+- **NFR-2 (No-Cost Constraint)**: The system shall rely exclusively on open-source Python libraries (`scikit-learn`, `xgboost`, `optuna`, `shap`, `lime`, `pandas`, `numpy`, `matplotlib`, `seaborn`, `pytest`, `joblib`) without requiring paid APIs or commercial services.
 - **NFR-3 (Reproducibility)**: The system shall enforce reproducible stochastic behavior by configuring fixed random seeds (`random_state=42`) across data splits, model initializations, and Optuna samplers.
 - **NFR-4 (Modularity & Maintainability)**: Code shall be organized into modular, decoupled Python scripts under `src/`, with unit tests maintained under `tests/`.
 
@@ -112,11 +120,12 @@ This document specifies the software requirements for an academic and clinical r
   - `pyyaml==6.0.3`
   - `pytest==9.1.1`
   - `jupyter==1.1.1`
+  - `joblib==1.6.0`
 
 ---
 
 ### 6. Constraints and Assumptions
-- **C-1**: Local storage is assumed for dataset caching (`data/raw_*.csv`).
+- **C-1**: Local storage is assumed for dataset caching (`data/raw_*.csv`) and model artifact persistence (`models/*.joblib`).
 - **C-2**: Datasets use binary classification target definitions.
 - **C-3**: Subgroup sample sizes and per-site cohorts vary in size and disease prevalence; fairness and per-site metrics must be interpreted with Precision and Specificity to guard against prevalence bias.
-- **C-4**: Counterfactual explanations represent model-based sensitivity what-if scenarios and do not constitute medical advice.
+- **C-4**: Counterfactual explanations and model estimates represent sensitivity what-if scenarios / statistical probabilities and do not constitute medical diagnoses.
