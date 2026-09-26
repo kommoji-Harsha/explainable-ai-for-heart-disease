@@ -2,7 +2,7 @@
 ## Optimized, Explainable, Reliable Ensemble Framework for Heart Disease Prediction
 
 ### 1. Purpose and Scope
-This document specifies the software requirements for an academic and clinical research machine learning framework designed for heart disease prediction. The framework integrates ensemble learning (Random Forest, XGBoost, AdaBoost), Bayesian hyperparameter optimization (Optuna), nested cross-validation, model probability calibration, subgroup fairness evaluation, per-patient uncertainty/disagreement flagging, cross-dataset external validation, explanation depth methods (LIME comparison, counterfactual reasoning, and explanation stability), and a modern SaaS clinical web application.
+This document specifies the software requirements for an academic and clinical research machine learning framework designed for heart disease prediction. The framework integrates ensemble learning (Random Forest, XGBoost, AdaBoost), Bayesian hyperparameter optimization (Optuna), nested cross-validation, model probability calibration, subgroup fairness evaluation, per-patient uncertainty/disagreement flagging, cross-dataset external validation, explanation depth methods (LIME comparison, counterfactual reasoning, and explanation stability), a modern SaaS clinical web application, and a formal academic presentation deck.
 
 ---
 
@@ -88,11 +88,16 @@ This document specifies the software requirements for an academic and clinical r
 - **FR-9.5**: The application shall include an "About This Project" tab detailing project innovations, architectural additions beyond reference paper, and dynamic training metadata loaded from `models/metadata.json`.
 - **FR-9.6**: On initial launch, if `models/` artifacts do not exist, the app shall auto-trigger `train_final_model.py` once with a clear loading status before rendering the interface.
 
+#### 2.11 Academic Presentation Deck (Added 2026-09-26)
+- **FR-10.1**: The system shall provide `src/build_presentation.py` to programmatically generate a formal 17-slide widescreen (16:9) PowerPoint presentation saved to `presentations/project_presentation.pptx`.
+- **FR-10.2**: The presentation deck shall adhere to a consistent design system with dark navy background slides for dividers/title/closing, light neutral backgrounds for content slides, Cambria/Calibri typography, card-based layouts, and solid-colored oval icon badges with centered emoji symbols.
+- **FR-10.3**: The presentation content shall accurately report verified project pipeline results including: 920-patient 4-site cohort, 4,240-patient Framingham cohort, 3 bugs found & fixed (calibration leakage, class imbalance specificity, zero-as-missing continuous values), agreement accuracy breakdown (89.3% high vs 60.0% low), and external validation ROC-AUC scores (~69%).
+
 ---
 
 ### 3. Non-Functional Requirements
 - **NFR-1 (Performance & Runtime)**: The pipeline execution shall run efficiently within standard free-tier CPU compute environments (e.g. Kaggle / Colab) in under 3 minutes.
-- **NFR-2 (No-Cost Constraint)**: The system shall rely exclusively on open-source Python libraries (`scikit-learn`, `xgboost`, `optuna`, `shap`, `lime`, `pandas`, `numpy`, `matplotlib`, `seaborn`, `pytest`, `joblib`, `streamlit`, `plotly`) without requiring paid APIs or commercial services.
+- **NFR-2 (No-Cost Constraint)**: The system shall rely exclusively on open-source Python libraries (`scikit-learn`, `xgboost`, `optuna`, `shap`, `lime`, `pandas`, `numpy`, `matplotlib`, `seaborn`, `pytest`, `joblib`, `streamlit`, `plotly`, `python-pptx`) without requiring paid APIs or commercial services.
 - **NFR-3 (Reproducibility)**: The system shall enforce reproducible stochastic behavior by configuring fixed random seeds (`random_state=42`) across data splits, model initializations, and Optuna samplers.
 - **NFR-4 (Modularity & Maintainability)**: Code shall be organized into modular, decoupled Python scripts under `src/`, with unit tests maintained under `tests/`.
 
@@ -131,11 +136,12 @@ This document specifies the software requirements for an academic and clinical r
   - `joblib==1.6.0`
   - `streamlit==1.64.0`
   - `plotly==7.1.0`
+  - `python-pptx==1.0.2`
 
 ---
 
 ### 6. Constraints and Assumptions
-- **C-1**: Local storage is assumed for dataset caching (`data/raw_*.csv`) and model artifact persistence (`models/*.joblib`).
+- **C-1**: Local storage is assumed for dataset caching (`data/raw_*.csv`), model artifact persistence (`models/*.joblib`), and presentation deck (`presentations/project_presentation.pptx`).
 - **C-2**: Datasets use binary classification target definitions.
 - **C-3**: Subgroup sample sizes and per-site cohorts vary in size and disease prevalence; fairness and per-site metrics must be interpreted with Precision and Specificity to guard against prevalence bias.
 - **C-4**: Counterfactual explanations and model estimates represent sensitivity what-if scenarios / statistical probabilities and do not constitute medical diagnoses.

@@ -1,6 +1,12 @@
 # Optimized, Explainable, Reliable Ensemble Framework for Heart Disease Prediction
 
-This repository implements the research framework for heart disease prediction based on the primary dataset migration from Cleveland-only (303 patients) to the **COMBINED 4-site UCI Heart Disease dataset** (Cleveland, Hungarian, Switzerland, VA Long Beach; **920 patients total**), along with cross-dataset external validation on the Framingham Heart Study cohort (4,240 patients), explanation depth modules (LIME, counterfactuals, explanation stability), and final model artifact deployment.
+This repository implements the research framework for heart disease prediction based on the primary dataset migration from Cleveland-only (303 patients) to the **COMBINED 4-site UCI Heart Disease dataset** (Cleveland, Hungarian, Switzerland, VA Long Beach; **920 patients total**), along with cross-dataset external validation on the Framingham Heart Study cohort (4,240 patients), explanation depth modules (LIME, counterfactuals, explanation stability), final model artifact deployment, and a formal 17-slide PowerPoint presentation deck (`presentations/project_presentation.pptx`).
+
+## Presentation Deck
+For the complete project presentation deck, refer to:
+- [`presentations/project_presentation.pptx`](./presentations/project_presentation.pptx)
+
+---
 
 ## Web App Demo
 
@@ -116,6 +122,8 @@ jupyter nbconvert --to notebook --execute notebooks/06_live_demo.ipynb --output 
 │   ├── 04_cross_dataset_validation.ipynb       # 3-Way Cross-Dataset External Validation
 │   ├── 05_explanation_depth.ipynb              # Explanation Depth (LIME, Counterfactuals, Stability)
 │   └── 06_live_demo.ipynb                      # Presentation-ready Live Demonstration Notebook
+├── presentations/
+│   └── project_presentation.pptx              # 17-slide widescreen academic presentation deck
 ├── results/                                    # Output plots and visualizations
 ├── src/
 │   ├── preprocessing.py                        # Multi-source data loading, concatenation, 0-as-missing fix, scaling
@@ -133,7 +141,8 @@ jupyter nbconvert --to notebook --execute notebooks/06_live_demo.ipynb --output 
 │   ├── data_harmonization.py                   # Combined UCI & Framingham dataset schema harmonization
 │   ├── external_validation.py                  # Cross-dataset model training and 3-way external evaluation
 │   ├── train_final_model.py                    # Trains final preprocessor & models on full dataset
-│   └── predict.py                              # Patient prediction CLI, risk labeling, & SHAP explanations
+│   ├── predict.py                              # Patient prediction CLI, risk labeling, & SHAP explanations
+│   └── build_presentation.py                   # Builder script generating project_presentation.pptx
 ├── tests/
 │   ├── test_pipeline.py                        # Unit tests for baseline pipeline & evaluation
 │   ├── test_calibration_fairness.py           # Unit tests for calibration and fairness metrics
