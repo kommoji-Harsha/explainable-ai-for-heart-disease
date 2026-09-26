@@ -643,11 +643,15 @@ def create_presentation():
         p_l.font.bold = True
         p_l.font.color.rgb = TEXT_MUTED
 
-    p_note = tf.add_paragraph()
+    # Separate Textbox for Clinical Insight below Stat Cards
+    tx_note = s9.shapes.add_textbox(Inches(1.1), Inches(4.85), Inches(11.13), Inches(1.6))
+    tf_note = tx_note.text_frame
+    tf_note.word_wrap = True
+    p_note = tf_note.paragraphs[0]
     p_note.text = "Clinical Insight: Because 92.7% of patients in the Switzerland cohort had heart disease, a naive model predicting 'disease' almost constantly achieves 91.1% accuracy and 97.4% recall. However, its 11.1% specificity reveals it fails to identify healthy patients. Disaggregating metrics by site was essential to surface this prevalence bias."
     p_note.font.size = Pt(12)
+    p_note.font.name = FONT_BODY
     p_note.font.color.rgb = TEXT_DARK
-    p_note.space_before = Pt(105)
 
     # -------------------------------------------------------------
     # SLIDE 10: Model Agreement (Light - Original Contribution)
