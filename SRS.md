@@ -92,6 +92,7 @@ This document specifies the software requirements for an academic and clinical r
 - **FR-10.1**: The system shall provide `src/build_presentation.py` to programmatically generate a formal 17-slide widescreen (16:9) PowerPoint presentation saved to `presentations/project_presentation.pptx`.
 - **FR-10.2**: The presentation deck shall adhere to a consistent design system with dark navy background slides for dividers/title/closing, light neutral backgrounds for content slides, Cambria/Calibri typography, card-based layouts, and solid-colored oval icon badges with centered emoji symbols.
 - **FR-10.3**: The presentation content shall accurately report verified project pipeline results including: 920-patient 4-site cohort, 4,240-patient Framingham cohort, 3 bugs found & fixed (calibration leakage, class imbalance specificity, zero-as-missing continuous values), agreement accuracy breakdown (89.3% high vs 60.0% low), and external validation ROC-AUC scores (~69%).
+
 ---
 
 ### 3. Non-Functional Requirements
