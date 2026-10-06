@@ -76,11 +76,6 @@ def train_and_save_final_models(models_dir: str = "models", config_path: str = "
 
     # Feature schema details
     raw_feature_list = [c for c in COLUMN_NAMES if c != "target"]
-<<<<<<< HEAD
-
-=======
-    
->>>>>>> origin/main
     # Save metadata
     metadata = {
         "training_date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
